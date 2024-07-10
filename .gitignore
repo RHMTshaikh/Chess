@@ -1,6 +1,6 @@
 backend/src/test.js
 backend/dist
-backend\src\ChessLogic\image.png
+backend/src/ChessLogic/image.png
 backend/node_modules/
 backend/.env
 frontend/.env
