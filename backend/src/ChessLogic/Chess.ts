@@ -7,7 +7,8 @@ type Span = {
 }
 type Move = {
     from: Position,
-    to: Position 
+    to: Position,
+    piece: number,
 }
 
 export class Chess {
@@ -25,7 +26,7 @@ export class Chess {
     pickedPiece: Position | null = null
     validMovesArray: Position[] = []
 
-    printBoard() {
+    private printBoard() {
         for (let row of this.board) {
             console.log(row.join(' '));
         }
@@ -169,12 +170,11 @@ export class Chess {
         }
     }
     place(to: Position): Move {
-        console.log('chess.ts:173',to);
-        console.log('chess.ts:174',this.validMovesArray);
         
         if (this.pickedPiece) {
             if (this.validMovesArray.some(obj => obj.y === to.y && obj.x === to.x)) {
                 const from = this.pickedPiece; // Store pickedPiece in a local variable
+                const move: Move = { from, to, piece: this.pieceAt(to) };
 
                 this.board[to.y][to.x] = this.pieceAt(from);
                 this.board[from.y][from.x] = 9;
@@ -182,8 +182,7 @@ export class Chess {
 
                 this.validMovesArray = [];
                 this.pickedPiece = null;
-                const move: Move = { from, to };
-                this.printBoard();
+                // this.printBoard();
                 return move;
             } else {
                 throw new Error('Invalid Move!');

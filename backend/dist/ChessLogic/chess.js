@@ -155,18 +155,16 @@ class Chess {
         }
     }
     place(to) {
-        console.log('chess.ts:173', to);
-        console.log('chess.ts:174', this.validMovesArray);
         if (this.pickedPiece) {
             if (this.validMovesArray.some(obj => obj.y === to.y && obj.x === to.x)) {
                 const from = this.pickedPiece; // Store pickedPiece in a local variable
+                const move = { from, to, piece: this.pieceAt(to) };
                 this.board[to.y][to.x] = this.pieceAt(from);
                 this.board[from.y][from.x] = 9;
                 this.whitesTurn = !this.whitesTurn;
                 this.validMovesArray = [];
                 this.pickedPiece = null;
-                const move = { from, to };
-                this.printBoard();
+                // this.printBoard();
                 return move;
             }
             else {

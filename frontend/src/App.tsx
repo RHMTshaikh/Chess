@@ -1,60 +1,51 @@
-import React, { useState, useRef } from 'react';
-import './App.css';
-import ChessBoard from './components/ChessBoard';
-// import Home from './pages/Home';
+// Chess\frontend\src\App.tsx
+
+import Navbar from './components/Navbar';
+import LandingPage from './pages/LandingPage';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import DashBoard from './pages/DashBoard';
+import Room from './pages/Room';
+import { AuthContextProvider } from './context/AuthContext';
+import LoginButtons from './components/LoginButtons';
+import NewLoginForm from './components/NewLoginForm';
+import LoginForm from './components/LoginForm';
+import { GameContextProvider } from './context/GameContext';
+import ErrorPage from './pages/ErrorPage';
+import { useAuthContext } from './hooks/useAuthContext';
 
 function App() {
-    const [connected, setConnected] = useState(false);
-    const [waiting, setWaiting] = useState(false);
-    const ws = useRef<WebSocket | null>(null);
-    const [board, setBoard] = useState<number[][] | null>(null);
-    const [pieceColor, setPiececolor] = useState<string | null>(null);
-
-    const play = () => {
-        setWaiting(true);
-        ws.current = new WebSocket('ws://localhost:8800');
-        ws.current.onopen = () => {
-            console.log('WebSocket connection opened');
-        };
-
-        ws.current.onmessage = (event: MessageEvent) => {
-            console.log('Message from server:', event.data);
-            const json = JSON.parse(event.data);
-            console.log(json.type);
-            if (json.type === 'error') {
-                console.log(json.error);
-                return
-            }
-            if (json.type === 'connected') {
-                setConnected(true);
-                setBoard(json.board)
-                setPiececolor(json.pieceColor)
-                return
-            }            
-        };
-
-        ws.current.onclose = () => {
-            console.log('WebSocket connection closed');
-        };
-
-        ws.current.onerror = (error: Event) => {
-            console.error('WebSocket error:', error);
-        };
-    }
-
+    const { user } = useAuthContext();
+    
     return (
         <div className='App'>
-            {waiting ? (
-                <>
-                {connected ? (
-                    <ChessBoard board={board} ws={ws} pieceColor={pieceColor} />
-                ) : (
-                    <p>Waiting for other player...</p>
-                )}
-                </>
-            ) : (
-                <button className='play-button' onClick={play}>Play</button>
-            )}
+            <Navbar />
+            <div className='content'>
+                <Routes>
+                    <Route path='/' element={!user ? <LandingPage /> : <Navigate to={'/dashboard'}/>} >
+                        <Route index element={!user ? <LoginButtons /> : <Navigate to={'/dashboard'}/>} />
+                        <Route path='new-login' element={!user ? <NewLoginForm /> : <Navigate to={'/dashboard'}/>} />
+                        <Route path='login' element={!user ? <LoginForm /> : <Navigate to={'/'}/>} />
+                    </Route>
+                    
+                        <Route path='/dashboard'  element={user ? 
+                            <GameContextProvider>
+                                <DashBoard /> 
+                            </GameContextProvider>
+                            : 
+                            <Navigate to={'/'}/>} 
+                        />
+                        <Route path='/room' element={ user ? 
+                            <GameContextProvider>
+                                <Room /> 
+                            </GameContextProvider>
+                            : 
+                            <Navigate to={'/'}/> } 
+                        />
+                    
+                    <Route path='/error' element={<ErrorPage />} />
+                    <Route path='*' element={<ErrorPage />} />
+                </Routes>
+            </div>
         </div>
     );
 }
