@@ -141,8 +141,6 @@ export function startWebSocketServer(){
             ws.opponent.send(data.toString())
         });
     });
-    
-    console.log('WebSocket server is running on ws://localhost:8800');
 }
 
 const pickPiece = (player: Player, position: string )=>{

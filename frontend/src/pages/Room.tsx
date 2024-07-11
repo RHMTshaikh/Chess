@@ -7,19 +7,14 @@ function Room() {
     const [connected, setConnected] = useState(false);
     const ws = useRef<WebSocket| null>(null);
     if (ws.current === null) {
-        console.log("new connection");
-        
-        ws.current = new WebSocket('ws://localhost:8800');
+        ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}`);
     }
     
     const location = useLocation();
     const mode = useRef<string>(location.state.mode)
-    const { game:gameState, dispatch: gamedDispatch } = useGameContext()
+    const { dispatch: gamedDispatch } = useGameContext()
 
     useEffect(() => {
-        console.log("useeffect");
-        // ws.current = new WebSocket('ws://localhost:8800')
-
         console.log('WebSocket connection opened');
         ws.current!.onopen = () => {
             if (location.state.mode === 'play') {
