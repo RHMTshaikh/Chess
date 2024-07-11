@@ -10,9 +10,6 @@ import { startWebSocketServer } from './GameManager';
 import { passConnection } from './DataBaseLogic/dbLogic';
 import { Pool } from 'pg';
 
-
-startWebSocketServer()
-
 dotenv.config();
 
 const app = express();
@@ -34,6 +31,7 @@ app.use((req, res, next) => {
 app.use('/api/user', userRoutes);
 
 (async () => {
+    startWebSocketServer()
     const pool = new Pool({
         connectionString: process.env.CONNECTION_STRING,
         ssl: {

@@ -17,7 +17,7 @@ const users: WebSocket[] = []
 
 let webSocketServer:WebSocketServer;
 export function startWebSocketServer(){
-    webSocketServer = new WebSocketServer({port: 8800})
+    webSocketServer = new WebSocketServer({port: 8080})
 
     webSocketServer.on('connection', function connection(ws: Player & WebSocket, req) {
         // Parse cookies from request headers
