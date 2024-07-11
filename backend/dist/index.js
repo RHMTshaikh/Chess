@@ -19,6 +19,8 @@ const cors_1 = __importDefault(require("cors"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const user_1 = __importDefault(require("./routes/user"));
 const GameManager_1 = require("./GameManager");
+const dbLogic_1 = require("./DataBaseLogic/dbLogic");
+const pg_1 = require("pg");
 (0, GameManager_1.startWebSocketServer)();
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -37,7 +39,13 @@ app.use((req, res, next) => {
 // app.use('/api/workouts', workoutRoutes);
 app.use('/api/user', user_1.default);
 (() => __awaiter(void 0, void 0, void 0, function* () {
-    // const DBconnection = await connectDB();
+    const pool = new pg_1.Pool({
+        connectionString: "postgresql://rahmat:M0bi_tpBMkfAV4ABAmr2Zw@chess24-5329.7s5.aws-ap-south-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full",
+        ssl: {
+            rejectUnauthorized: false, // Adjust according to your SSL configuration
+        },
+    });
+    (0, dbLogic_1.passConnection)(pool);
     app.listen(process.env.PORT, () => {
         console.log('Listening on port', process.env.PORT);
     });

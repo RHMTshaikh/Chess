@@ -48,21 +48,26 @@ function startWebSocketServer() {
                 }
                 if (json.type === messages_1.PLACE) {
                     try {
-                        const { move, board } = placePiece(ws, json.position);
-                        yield (0, dbLogic_1.saveMoveDB)(ws.gameId, move, json.piece);
-                        ws.opponent.send(JSON.stringify({
-                            type: 'opponents-move',
-                            move,
-                            board
-                        }));
-                        const game = games.get(ws.gameId);
-                        game === null || game === void 0 ? void 0 : game.spectators.forEach((ws) => {
-                            ws.send(JSON.stringify({
-                                type: 'move',
+                        const result = placePiece(ws, json.position);
+                        if (result) {
+                            const { move, board } = result;
+                            yield (0, dbLogic_1.saveMoveDB)(ws.gameId, move, json.piece);
+                            ws.opponent.send(JSON.stringify({
+                                type: 'opponents-move',
                                 move,
                                 board
                             }));
-                        });
+                            if (games.has(ws.gameId)) {
+                                const game = games.get(ws.gameId);
+                                game === null || game === void 0 ? void 0 : game.spectators.forEach((ws) => {
+                                    ws.send(JSON.stringify({
+                                        type: 'move',
+                                        move,
+                                        board
+                                    }));
+                                });
+                            }
+                        }
                     }
                     catch (error) {
                         if (error instanceof Error) {
@@ -76,11 +81,13 @@ function startWebSocketServer() {
                     return;
                 }
                 if (json.type === 'current-state') {
-                    const game = games.get(ws.gameId);
-                    ws.send(JSON.stringify({
-                        type: 'current-state',
-                        board: game === null || game === void 0 ? void 0 : game.currentState()
-                    }));
+                    if (games.has(ws.gameId)) {
+                        const game = games.get(ws.gameId);
+                        ws.send(JSON.stringify({
+                            type: 'current-state',
+                            board: game === null || game === void 0 ? void 0 : game.currentState()
+                        }));
+                    }
                     return;
                 }
                 if (json.type === messages_1.INIT_GAME) {
@@ -89,17 +96,19 @@ function startWebSocketServer() {
                 }
                 if (json.type === 'leave-game') {
                     yield (0, dbLogic_1.gameOverDB)(ws.gameId, ws.opponent.emailId);
-                    const game = games.get(ws.gameId);
-                    game === null || game === void 0 ? void 0 : game.spectators.forEach((websocket) => {
-                        websocket.send(JSON.stringify({
-                            type: 'game-ended',
-                            winner: `${game.whitePlayer === ws ? 'black' : 'white'}`
+                    if (games.has(ws.gameId)) {
+                        const game = games.get(ws.gameId);
+                        game === null || game === void 0 ? void 0 : game.spectators.forEach((websocket) => {
+                            websocket.send(JSON.stringify({
+                                type: 'game-ended',
+                                winner: `${game.whitePlayer === ws ? 'black' : 'white'}`
+                            }));
+                        });
+                        ws.opponent.send(JSON.stringify({
+                            type: 'opponent-left',
+                            winner: `${(game === null || game === void 0 ? void 0 : game.whitePlayer) === ws ? 'black' : 'white'}`
                         }));
-                    });
-                    ws.opponent.send(JSON.stringify({
-                        type: 'opponent-left',
-                        winner: `${(game === null || game === void 0 ? void 0 : game.whitePlayer) === ws ? 'black' : 'white'}`
-                    }));
+                    }
                     games.delete(ws.gameId);
                     return;
                 }
@@ -118,8 +127,10 @@ function startWebSocketServer() {
                     return;
                 }
                 if (json.type === 'stop-spectating') {
-                    const game = games.get(ws.gameId);
-                    game.spectators = game.spectators.filter(spectatorWs => spectatorWs !== ws);
+                    if (games.has(ws.gameId)) {
+                        const game = games.get(ws.gameId);
+                        game.spectators = game.spectators.filter(spectatorWs => spectatorWs !== ws);
+                    }
                     return;
                 }
                 ws.opponent.send(data.toString());
@@ -131,36 +142,43 @@ function startWebSocketServer() {
 exports.startWebSocketServer = startWebSocketServer;
 const pickPiece = (player, position) => {
     if (player.turn) {
-        const game = games.get(player.gameId);
-        const validMoves = game === null || game === void 0 ? void 0 : game.pickPiece(position);
-        player.send(JSON.stringify({
-            type: 'valid-moves',
-            validMoves: validMoves
-        }));
+        if (games.has(player.gameId)) {
+            const game = games.get(player.gameId);
+            const validMoves = game === null || game === void 0 ? void 0 : game.pickPiece(position);
+            player.send(JSON.stringify({
+                type: 'valid-moves',
+                validMoves: validMoves
+            }));
+        }
     }
     else {
         throw new Error("its not your turn");
     }
 };
 const placePiece = (player, position) => {
-    const game = games.get(player.gameId);
-    const { move, board } = game.placePiece(position);
-    return { move, board };
+    if (games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        const { move, board } = game.placePiece(position);
+        return { move, board };
+    }
 };
 const currentState = (player) => {
-    const game = games.get(player.gameId);
-    const board = game === null || game === void 0 ? void 0 : game.currentState();
-    return board;
+    if (games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        const board = game === null || game === void 0 ? void 0 : game.currentState();
+        return board;
+    }
 };
 const createGame = (ws) => __awaiter(void 0, void 0, void 0, function* () {
     if (pendingUser) {
         pendingUser.opponent = ws;
         ws.opponent = pendingUser;
         let gameId = yield (0, dbLogic_1.nextGameId)();
+        console.log('game id: ', gameId);
         ws.gameId = gameId;
         pendingUser.gameId = gameId;
         const game = new Game_1.Game(pendingUser, ws);
-        yield (0, dbLogic_1.createGameDB)(game);
+        yield (0, dbLogic_1.createGameDB)(game, gameId);
         games.set(gameId, game); //{whitePlayer: pendingUser as Player, blackPlayer: ws}
         pendingUser.turn = true; //white player
         ws.turn = false; // black player
@@ -173,11 +191,9 @@ const createGame = (ws) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 const returnGame = (gameId) => {
-    return games.get(gameId);
+    if (games.has(gameId)) {
+        return games.get(gameId);
+    }
 };
 exports.returnGame = returnGame;
-const addSpectator = (ws, game) => {
-    game === null || game === void 0 ? void 0 : game.spectators.push(ws);
-    ws.send;
-};
 //# sourceMappingURL=GameManager.js.map

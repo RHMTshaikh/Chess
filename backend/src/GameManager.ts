@@ -118,19 +118,17 @@ export function startWebSocketServer(){
                 return
             }
             if (json.type === 'spectate') {
-                if (games.has(json.game_id)) {
-                    const game = games.get(json.game_id) as Game
-                    game.spectators.push(ws)
-                    ws.gameId = json.game_id
-                    ws.send(JSON.stringify({
-                        type: 'spectate',
-                        board: game.currentState(),
-                        moves: game.moves,
-                        pieceColor: 'white',
-                        player1: game.whitePlayer.emailId, //white
-                        player2: game.blackPlayer.emailId  //black
-                    }))
-                }
+                const game = games.get(json.game_id) as Game
+                game.spectators.push(ws)
+                ws.gameId = json.game_id
+                ws.send(JSON.stringify({
+                    type: 'spectate',
+                    board: game.currentState(),
+                    moves: game.moves,
+                    pieceColor: 'white',
+                    player1: game.whitePlayer.emailId, //white
+                    player2: game.blackPlayer.emailId  //black
+                }))
                 return
             }
             if (json.type === 'stop-spectating') {
@@ -183,13 +181,15 @@ const createGame = async (ws: Player)=> {
         ws.opponent = pendingUser as Player;
     
         let gameId = await nextGameId();
+        console.log('game id: ', gameId);
+        
     
         ws.gameId = gameId;
         (pendingUser as Player).gameId = gameId;
 
         const game = new Game(pendingUser as Player, ws)
 
-        await createGameDB(game)
+        await createGameDB(game, gameId)
 
         games.set(gameId, game ); //{whitePlayer: pendingUser as Player, blackPlayer: ws}
     
