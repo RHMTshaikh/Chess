@@ -17,8 +17,9 @@ const users: WebSocket[] = []
 
 let webSocketServer:WebSocketServer;
 export function startWebSocketServer(){
-    webSocketServer = new WebSocketServer({port: 8080})
-
+    webSocketServer = new WebSocketServer({port: parseInt( `${process.env.WEBSOCKET_PORT}` )})
+    console.log('waiting for websocket connection');
+    
     webSocketServer.on('connection', function connection(ws: Player & WebSocket, req) {
         // Parse cookies from request headers
         if (req.headers.cookie) {
@@ -140,6 +141,8 @@ export function startWebSocketServer(){
             }           
             ws.opponent.send(data.toString())
         });
+        console.log(`websocket connection on ${process.env.WEBSOCKET_PORT}` );
+        
     });
 }
 
