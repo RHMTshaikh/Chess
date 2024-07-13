@@ -18,6 +18,12 @@ app.use(cors({
     origin: process.env.ORIGIN, 
     credentials: true // This allows cookies to be included in cross-origin requests
 }));
+// Handle preflight requests
+app.options('*', cors({
+    origin: process.env.ORIGIN,
+    credentials: true,
+  }));
+  
 app.use(cookieParser())
 
 // Middleware
