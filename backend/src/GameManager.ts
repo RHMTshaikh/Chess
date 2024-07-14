@@ -4,6 +4,7 @@ import { parse } from 'cookie'
 import { INIT_GAME, MOVE, PICK, PLACE } from "./messages"
 import { Game } from "./Game"
 import { createGameDB, gameOverDB, nextGameId, saveMoveDB } from "./DataBaseLogic/dbLogic"
+import { IncomingMessage, Server, ServerResponse } from 'http';
 interface Player extends WebSocket {
     emailId: string
 	gameId: number ;
@@ -16,8 +17,9 @@ let pendingUser: WebSocket | null = null
 const users: WebSocket[] = []
 
 let webSocketServer:WebSocketServer;
-export function startWebSocketServer(){
-    webSocketServer = new WebSocketServer({port: parseInt( `${process.env.WEBSOCKET_PORT}` )})
+export function startWebSocketServer( server: Server){
+    // webSocketServer = new WebSocketServer({port: parseInt( `${process.env.WEBSOCKET_PORT}` )})
+    webSocketServer = new WebSocketServer( { server } )
     console.log('waiting for websocket connection');
     
     webSocketServer.on('connection', function connection(ws: Player & WebSocket, req) {

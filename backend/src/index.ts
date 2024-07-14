@@ -9,6 +9,9 @@ import userRoutes from './routes/user';
 import { startWebSocketServer } from './GameManager';
 import { passConnection } from './DataBaseLogic/dbLogic';
 import { Pool } from 'pg';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
+import { Http2ServerRequest } from 'http2';
 
 dotenv.config();
 
@@ -37,17 +40,21 @@ app.use((req, res, next) => {
 app.use('/api/user', userRoutes);
 
 (async () => {
-    startWebSocketServer()
     const pool = new Pool({
         connectionString: process.env.CONNECTION_STRING,
         ssl: {
             rejectUnauthorized: false, // Adjust according to your SSL configuration
         },
     });
-    
     passConnection(pool);
+
     const PORT = process.env.PORT || 4000
-	app.listen(PORT, () => {
+	const server = app.listen(PORT, () => {
 		console.log('Listening on port', PORT);
 	});
+    // const server = createServer()
+    // const webSocketServer = new WebSocketServer( { server } )
+
+    startWebSocketServer(server)
+
 })();
