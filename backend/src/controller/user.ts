@@ -7,8 +7,6 @@ import jwt from 'jsonwebtoken';
 // import { Document, Model } from 'mongoose';
 import dotenv from 'dotenv';
 import { myGamesDB, publicGamesDB, userLoginDB, newUserLoginDB } from '../DataBaseLogic/dbLogic';
-import { returnGame } from '../GameManager';
-// import User from '../models/userModel';
 
 dotenv.config();
 
@@ -31,30 +29,12 @@ interface PublicGames {
     white_player: string;
     black_player: string;
     moves: number;
-}
-
-interface GameResult {
+}interface GameResult {
     game_id: number;
     white_player: string;
     black_player: string;
     winner: string;
     moves: string;
-}
-
-async function spectate (req: Request, res: Response) {
-//     const { game_id } = req.params;
-//     const game = returnGame(parseInt(game_id))
-//     try {
-//         const gameDetails = await spe(game_id);
-//         if (!gameDetails) {
-//             return res.status(404).json({ error: 'Game not found' });
-//         }
-        
-//         res.status(200).json(gameDetails);
-//     } catch (error) {
-//         console.error('Error fetching game details:', error);
-//         res.status(500).json({ error: 'Internal Server Error' });
-//     }
 }
 async function publicGames(req: Request, res: Response) {
     try {
@@ -73,8 +53,6 @@ async function publicGames(req: Request, res: Response) {
         res.status(500).send('Internal Server Error');
     }
 }
-
-
 
 async function myGames(req: Request, res: Response){
     const email = req.cookies.email
@@ -102,10 +80,6 @@ const userLogin = async (req: Request, res: Response) => {
 // Login user
 const newUserLogin = async (req: Request, res: Response) => {
     const { email, password, name } = req.body;
-    console.log('newUserLogin');
-    
-    console.log(req.body);
-    
 
     try {
         const results = await newUserLoginDB(email, password, name);
@@ -288,4 +262,4 @@ const getProfilePic = async (req: Request, res: Response) => {
 //     },
 // });
 
-export { signupUser, userLogin, newUserLogin, myGames, loginUserGoogle, loginUserByQR, saveProfilePic, deleteProfilePic, getProfilePic,publicGames, spectate };
+export { signupUser, userLogin, newUserLogin, myGames, loginUserGoogle, loginUserByQR, saveProfilePic, deleteProfilePic, getProfilePic,publicGames };

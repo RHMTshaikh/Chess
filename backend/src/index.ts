@@ -9,9 +9,6 @@ import userRoutes from './routes/user';
 import { startWebSocketServer } from './GameManager';
 import { passConnection } from './DataBaseLogic/dbLogic';
 import { Pool } from 'pg';
-import { WebSocketServer } from 'ws';
-import { createServer } from 'http';
-import { Http2ServerRequest } from 'http2';
 
 dotenv.config();
 
@@ -29,21 +26,25 @@ app.options('*', cors({
   
 app.use(cookieParser())
 
-// Middleware
-app.use(express.json()); // Parse JSON bodies
+app.use(express.json()); 
 
 app.use((req, res, next) => {
-    console.log(req.path, req.method);
+    console.log('method: ',req.method);
+    console.log('path: ',req.path);
+    console.log('body: ',req.body);
+    console.log('headers: ',req.headers);
+    console.log('coockie: ',req.headers.cookie);
     next();
 });
 
 app.use('/api/user', userRoutes);
 
 (async () => {
+    console.log('trying to make database pool connection');
     const pool = new Pool({
         connectionString: process.env.CONNECTION_STRING,
         ssl: {
-            rejectUnauthorized: false, // Adjust according to your SSL configuration
+            rejectUnauthorized: false, 
         },
     });
     passConnection(pool);
@@ -52,8 +53,6 @@ app.use('/api/user', userRoutes);
 	const server = app.listen(PORT, () => {
 		console.log('Listening on port', PORT);
 	});
-    // const server = createServer()
-    // const webSocketServer = new WebSocketServer( { server } )
 
     startWebSocketServer(server)
 

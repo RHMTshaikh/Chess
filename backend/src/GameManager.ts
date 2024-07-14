@@ -1,10 +1,10 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { parse } from 'cookie'
 
-import { INIT_GAME, MOVE, PICK, PLACE } from "./messages"
+import { INIT_GAME, PICK, PLACE } from "./messages"
 import { Game } from "./Game"
 import { createGameDB, gameOverDB, nextGameId, saveMoveDB } from "./DataBaseLogic/dbLogic"
-import { IncomingMessage, Server, ServerResponse } from 'http';
+import { Server } from 'http';
 interface Player extends WebSocket {
     emailId: string
 	gameId: number ;
@@ -18,12 +18,14 @@ const users: WebSocket[] = []
 
 let webSocketServer:WebSocketServer;
 export function startWebSocketServer( server: Server){
-    // webSocketServer = new WebSocketServer({port: parseInt( `${process.env.WEBSOCKET_PORT}` )})
+
     webSocketServer = new WebSocketServer( { server } )
-    console.log('waiting for websocket connection');
+    
+    console.log(`websocket listening on ${process.env.PORT}` );
     
     webSocketServer.on('connection', function connection(ws: Player & WebSocket, req) {
-        // Parse cookies from request headers
+        console.log('new ws connection: ');
+        
         if (req.headers.cookie) {
             const cookies = parse(req.headers.cookie);
             ws.emailId = cookies.email
@@ -142,9 +144,7 @@ export function startWebSocketServer( server: Server){
                 return;
             }           
             ws.opponent.send(data.toString())
-        });
-        console.log(`websocket connection on ${process.env.WEBSOCKET_PORT}` );
-        
+        });        
     });
 }
 
