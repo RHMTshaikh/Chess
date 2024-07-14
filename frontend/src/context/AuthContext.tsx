@@ -37,8 +37,7 @@ export const authReducer = (state: AuthState, action: AuthAction): AuthState => 
         case 'LOGIN':
             localStorage.setItem('user', JSON.stringify(action.payload));
             console.log(`email=${action.payload.email}; domain=${(new URL(process.env.REACT_APP_SERVER_URL!)).hostname}; path=/; SameSite=None; Secure`);
-            
-            document.cookie = `email=${action.payload.email}; domain=${(new URL(process.env.REACT_APP_SERVER_URL!)).hostname}; path=/; SameSite=None; Secure`;
+            document.cookie = `email=${action.payload.email}`;
             return { user: action.payload };
         case 'LOGOUT':
             localStorage.removeItem('user')

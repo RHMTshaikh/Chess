@@ -15,13 +15,18 @@ dotenv.config();
 const app = express();
 
 app.use(cors({
-    origin: process.env.ORIGIN, 
-    credentials: true // This allows cookies to be included in cross-origin requests
+    origin: process.env.ORIGIN,
+    credentials: true, // Allows cookies and other credentials to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify which methods are allowed
+    allowedHeaders: ['Content-Type', 'Authorization'], // Specify allowed headers
 }));
+
 // Handle preflight requests
 app.options('*', cors({
     origin: process.env.ORIGIN,
-    credentials: true,
+    credentials: true, // Allows cookies and other credentials to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify which methods are allowed
+    allowedHeaders: ['Content-Type', 'Authorization'], // Specify allowed headers
   }));
   
 app.use(cookieParser())
