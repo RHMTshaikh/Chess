@@ -32,8 +32,7 @@ app.use((req, res, next) => {
     console.log('method: ',req.method);
     console.log('path: ',req.path);
     console.log('body: ',req.body);
-    console.log('headers: ',req.headers);
-    console.log('coockie: ',req.headers.cookie);
+    console.log('cookie: ',req.headers.cookie);
     next();
 });
 

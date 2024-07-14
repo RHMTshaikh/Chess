@@ -24,7 +24,7 @@ export function startWebSocketServer( server: Server){
     console.log(`websocket listening on ${process.env.PORT}` );
     
     webSocketServer.on('connection', function connection(ws: Player & WebSocket, req) {
-        console.log('new ws connection: ');
+        console.log('new ws connection: ', req);
         
         if (req.headers.cookie) {
             const cookies = parse(req.headers.cookie);
