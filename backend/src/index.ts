@@ -27,7 +27,7 @@ app.options('*', cors({
     credentials: true, // Allows cookies and other credentials to be sent
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify which methods are allowed
     allowedHeaders: ['Content-Type', 'Authorization'], // Specify allowed headers
-  }));
+}));
   
 app.use(cookieParser())
 
@@ -37,7 +37,7 @@ app.use((req, res, next) => {
     console.log('method: ',req.method);
     console.log('path: ',req.path);
     console.log('body: ',req.body);
-    console.log('cookie: ',req.headers.cookie);
+    console.log('cookie: ',req.cookies);
     next();
 });
 

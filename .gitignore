@@ -1,3 +1,4 @@
+backend/src/logs.js
 backend/src/test.js
 backend/dist/
 backend/src/ChessLogic/image.png

@@ -1,3 +1,5 @@
+// Chess\backend\src\GameManager.ts
+
 import WebSocket, { WebSocketServer } from 'ws';
 import { parse } from 'cookie'
 
