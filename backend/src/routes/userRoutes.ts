@@ -13,7 +13,7 @@ import {
   // deleteProfilePic,
   // getProfilePic,
   // multer
-} from '../controller/user';
+} from '../controller/userController';
 
 const router = express.Router();
 

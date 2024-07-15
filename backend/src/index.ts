@@ -5,7 +5,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
-import userRoutes from './routes/user';
+import userRoutes from './routes/userRoutes';
 import { startWebSocketServer } from './GameManager';
 import { passConnection } from './DataBaseLogic/dbLogic';
 import { Pool } from 'pg';

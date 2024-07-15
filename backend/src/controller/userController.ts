@@ -67,8 +67,13 @@ const userLogin = async (req: Request, res: Response) => {
     try {
         // Save to database
         const results = await userLoginDB( email, password );
-        console.log('results', results);
-        
+        console.log('userLogin: ', results);
+         // Set a cookie
+        res.cookie('email', results.data.email, {
+            httpOnly: true, // Mitigates XSS attacks by preventing client-side scripts from accessing the cookie
+            secure: true, // Ensures the cookie is only sent over HTTPS
+            sameSite: 'none', // Ensures the cookie is sent in cross-site requests
+        });
         // const { email, name, rank } = results.data;
         res.status(200).send({ user: results.data });
 
