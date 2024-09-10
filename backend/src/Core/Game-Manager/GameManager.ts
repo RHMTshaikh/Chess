@@ -44,7 +44,7 @@ export default class GameManager extends EventEmitter {
         const opponentColor = GameManager.opponentColor(player);
         if (this.pendingUser[opponentColor] !== null) {
 
-            const waitingPlayer = this.pendingUser[opponentColor] ;
+            const waitingPlayer = this.pendingUser[opponentColor] as Player;
             
             this.pendingUser[opponentColor] = null;
 
@@ -74,7 +74,7 @@ export default class GameManager extends EventEmitter {
                 type: 'GAME_CREATED',
                 game_id,
                 turn: game.turn(),
-                opponent: waitingPlayer,
+                opponent: waitingPlayer as Player,
                 board: game.currentState(),
                 whiteTime: game.getWhiteTime(),
                 blackTime: game.getBlackTime(),

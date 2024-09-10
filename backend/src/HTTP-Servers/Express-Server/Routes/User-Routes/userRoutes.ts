@@ -8,7 +8,7 @@ import {
     signUpGuest,
     getUsersGames
 } from "../../../../Controllers";
-import { authorizUser } from "../../../../Middleware";
+import { authorizUser } from "../../../../Middleware/index";
 
 const router = express.Router();
 
