@@ -5,69 +5,75 @@ import { useLocation } from "react-router-dom";
 
 function Room() {
     const [connected, setConnected] = useState(false);
-    const ws = useRef<WebSocket| null>(null);
-    if (ws.current === null) {
-        ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}`);
-    }
-    
     const location = useLocation();
-    const mode = useRef<string>(location.state.mode)
-    const { dispatch: gamedDispatch } = useGameContext()
+    const color = useRef<string>(location.state.color);
+    const opponent = useRef<string>(location.state.opponent);
+    const role = useRef<string>(location.state.role);
+    const game_id = useRef<number>(location.state.game_id);
+    
+    const ws = useRef<WebSocket | null>(null);
+    const { dispatch: gamedDispatch } = useGameContext();
+
+    if (ws.current === null) {
+        if (role.current === 'PLAYER' ) {
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?color=${color.current}&opponent=${opponent.current}&role=${role.current}`);
+        } else if(role.current === 'SPECTATOR') {
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?role=${role.current}&game_id=${game_id.current}`);
+            console.log(game_id.current);
+            
+        } else {
+            throw new Error('Invalid role');
+        }
+    }
 
     useEffect(() => {
-        console.log('WebSocket connection opened');
-        ws.current!.onopen = () => {
-            if (location.state.mode === 'play') {
-                ws.current?.send(JSON.stringify({
-                    type: 'init_game',
-                }))
-                if (!connected) {
-                    console.log('not connected');
-                }
+        if (ws.current) {
+            
+            ws.current.onopen = () => {
+                console.log('WebSocket connection opened');
+            };
+
+            ws.current.onmessage = (event: MessageEvent) => {
+    
+                const json = JSON.parse(event.data);
+                console.log('message from websocket server:', json);
                 
-            } else if (location.state.mode === 'spectate') {
-                ws.current!.send(JSON.stringify({
-                    type: 'spectate',
-                    game_id: location.state.gameId,
-                }))
-            }
+    
+                if (json.type === 'ERROR') {
+                    console.error('Error from websocket server:', json.error);
+                    return;
+                }
+                if (json.type === 'CONNECTED') {
+                    setConnected(true);
+                    gamedDispatch({ type: "START", payload: json });
+                    return;
+                }
+                if (json.type === 'SPECTATE') {
+                    gamedDispatch({ type: "SPECTATE", payload: json });
+                    setConnected(true);
+                    return;
+                }
+            };
+    
+            ws.current.onclose = () => {
+                console.log('WebSocket connection closed');
+            };
+    
+            ws.current.onerror = (error: Event) => {
+                console.error('WebSocket error:', error);
+            };
+    
         }
-
-        ws.current!.onmessage = (event: MessageEvent) => {
-            console.log('Message from server:', event.data);
-
-            const json = JSON.parse(event.data);
-            console.log(json);
-
-            if (json.type === 'error') {
-                return;
-            }
-            if (json.type === 'connected') {
-                setConnected(true);
-                gamedDispatch({type: "START", payload: json })
-                return;
-            }            
-            if (json.type === 'spectate') {
-                gamedDispatch({type: "SPECTATE", payload: json })
-                setConnected(true);
-                return;
-            }            
+        // Cleanup WebSocket connection on component unmount
+        return () => {
+            ws.current?.close();
         };
-
-        ws.current!.onclose = () => {
-            console.log('WebSocket connection closed');
-        };
-        
-        ws.current!.onerror = (error: Event) => {
-            console.error('WebSocket error:', error);
-        };
-
     }, []);
 
     return (
         <div className="room">
             {connected ? 
-                <ChessBoard ws={ws} mode={mode} />
+                <ChessBoard ws={ws} />
                 :
                 <h1>waiting</h1>
             }

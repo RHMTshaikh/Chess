@@ -8,22 +8,38 @@ interface Game {
 function MyGames() {
 	const { user } = useAuthContext()
 	const [gamelist, setGamelist] = useState<Game[]>([])
-	useEffect(() => {
-		const fetchGames = async () =>{
-			console.log('fetching games...');
-			const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/my-games`, {
-				method: 'GET',
-				credentials: 'include',
-				headers: { 'Content-Type': 'application/json' },
-			});
-			const json = await response.json();
-			
-			if (!response.ok) {
-				console.log(json.error);
-			} else {
-				setGamelist(json)
+
+	const fetchGames = async () =>{
+		console.log('fetching my games...');
+		const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/games`, {
+			method: 'GET',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
+		});
+		const json = await response.json();
+		
+		if (response.ok) {
+			setGamelist(json.games);
+		} else {
+			if (json.error === 'TokenExpiredError') {
+				console.log('access token has expierd ,asking for renew token');
+				const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/renew-token`, {
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' },
+				});
+				if (response.ok) {
+                    console.log('retrying again fetching my games...');
+					fetchGames();
+				} else {
+					const json = await response.json()
+					console.log('error occured while refreshing the token: ',json.error);
+				}
 			}
 		}
+	}
+
+	useEffect(() => {
 		fetchGames()
 	}, [])
 	

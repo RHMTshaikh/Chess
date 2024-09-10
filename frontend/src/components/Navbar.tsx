@@ -1,15 +1,11 @@
-// Chess\frontend\src\components\Navbar.tsx
-
-import { useState, useEffect, MouseEventHandler } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthContext } from '../hooks/useAuthContext';
 
 export default function Navbar() {
     const { user, dispatch } = useAuthContext();
     const [name, setName] = useState<string>('');
     const [rank, setRank] = useState<string>('');
-	const navigate = useNavigate()
-
 
     useEffect(() => {
         if (user) {
@@ -18,16 +14,38 @@ export default function Navbar() {
         }else{
             setName('');
             setRank('');
-
 		}
     }, [user]);
 
-	function logout() {
-        dispatch({ type: 'LOGOUT' })
-        // navigate('/')
+	async function logout() {
+        const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/logout`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (response.ok) {
+            console.log('logging out...');
+            dispatch({ type: 'LOGOUT' })
+        } else{
+            const json = await response.json()
+            if (json.error === 'TokenExpiredError') {
+				console.log('access token has expierd ,asking for renew token');
+				const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/renew-token`, {
+					method: 'GET',
+					credentials: 'include',
+					headers: { 'Content-Type': 'application/json' },
+				});
+				if (response.ok) {
+                    console.log('retrying logging out again...');
+					logout();
+				} else {
+					const json = await response.json()
+					console.log('error occured while refreshing the token: ',json.error);
+				}
+			}
+        }
 	}
-
-
 
     return (
         <div className="navbar">

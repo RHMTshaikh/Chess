@@ -1,5 +1,3 @@
-// Chess\frontend\src\hooks\useLogin.ts
-
 import { useAuthContext } from "./useAuthContext";
 
 interface User {
@@ -33,10 +31,9 @@ export const useLogin = () => {
             });
 
             const json = await response.json();
-            console.log(json);
             
             if (response.ok) {
-                dispatch({ type: 'LOGIN', payload: json.user });
+                dispatch({ type: 'LOGIN', payload: json });
             }
 
         } catch (error) {
@@ -44,9 +41,9 @@ export const useLogin = () => {
         }
     };
 
-    const newLogin = async ({ email, name, password }: LoginParams) => {
+    const signup = async ({ email, name, password }: LoginParams) => {
         try {
-            const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/new-login`, {
+            const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/signup`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
@@ -54,10 +51,9 @@ export const useLogin = () => {
             });
 
             const json = await response.json();
-            console.log(json);
             
             if (response.ok) {
-                dispatch({ type: 'LOGIN', payload: json.user });
+                dispatch({ type: 'LOGIN', payload: json });
             }
 
         } catch (error) {
@@ -65,5 +61,5 @@ export const useLogin = () => {
         }
     };
 
-    return { login, newLogin };
+    return { login, signup };
 };

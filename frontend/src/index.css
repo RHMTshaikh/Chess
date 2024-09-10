@@ -6,24 +6,27 @@ html, body {
   padding: 0;
 }
 .App {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  min-width: fit-content;
-  margin: 0;
+  /* display: flex; */
+  /* flex-direction: column; */
+  /* height: 100vh; */
+  /* max-height: 100vh; */
+  /* min-width: fit-content; */
+  /* margin: 0; */
   background-color:#312e2b;
 }
 .navbar {
   color: rgb(216, 216, 216);
-  width: 100%;
+  /* width: 100%; */
   height: 100px;
-  min-height: 100px;
+  /* min-height: 100px; */
   background-color: #262522;
 }
 .content {
+  /* position: relative; */
   background-color:#312e2b;
-  flex-grow: 1;
-  min-height: fit-content;
+  /* border: 2px solid red; */
+  /* flex-grow: 1; */
+  /* min-height: fit-content; */
 }
 .landing-page-div{
   display: grid;
@@ -67,6 +70,9 @@ html, body {
   box-shadow: 3px 3px #1c1a19, 0 0 10px #ffffff76, inset  0 0 40px 40px  #6e6860;
   text-shadow: 0 3px 11px #000000;
 }
+/*====================
+       NAVBAR
+==========================*/
 .navbar{
   display: grid;
   grid-template-columns: 90fr 18fr 12fr 7fr 12fr;
@@ -95,8 +101,6 @@ html, body {
 .dashboard{
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  place-items: center;
-  height: 100%;
 }
 .dashboard > div {
   height: 400px;
@@ -128,75 +132,85 @@ div.play-game{
   padding: .25em;
 }
 
+/* ==================
+       ROOM
+================== */
 
-.room{
-  height: 100%;
+.room, .dashboard{
+  height: calc(100vh - 100px);
   display: grid;
-  grid-template-columns: 1fr 1fr;
   place-items: center;
+  object-fit: contain;
+}
+.room{
+  grid-template-rows: 1fr 10fr 1fr;
+  grid-template-columns: 10fr 2fr 10fr;
+  place-items: center;
+  object-fit: contain;
+  overflow: hidden;
 }
 
-.chessboard{
+.chessboard{ 
   background-color: rgb(48, 48, 48);
   border-radius: 5px;
-  height: 500px;
-  width: 500px;
+  grid-area: 2/1/3/2;
   display: grid;
+  grid-template-rows: 3fr 24fr 1fr 3fr;
   grid-template-columns: 1fr 24fr;
-  grid-template-rows: 24fr 1fr;
+  aspect-ratio: 25/31;
 }
 .grid {
-  height: 480px;
-  width: 480px;
+  grid-area: 2/2/3/3;
+  max-width: 100%; 
+  max-height: 100%;
+  object-fit: contain;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: repeat(8, 60px);
-  grid-template-rows: repeat(8, 60px);
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
   border-radius: 5px;
   background-image: url(../public/assets/image/board.png);
   background-size: contain;
+  aspect-ratio: 1/1;
 }
 .chessboard .verticle{
-  grid-area:  1/1/2/2;
-}
-.chessboard .grid{
-  grid-area: 1/2/2/3;
+  grid-area:  2/1/3/2;
+  display: grid;
+  grid-template-rows: repeat(8, 1fr);
+  place-items: center;
 }
 .chessboard .horizontal {
-  grid-area: 2/2/3/3;
+  grid-area: 3/2/4/3;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  place-items: center;
 }
-.horizontal div {
-  display: inline-block;
-  width: 60px;
-  text-align: center;
+.horizontal > div {
   color: #aaa;
 }
-.verticle div {
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.verticle > div {
   color: #aaa;
 }
 .tile {
-  height: 60px;
-  width: 60px;
+  object-fit:contain;
+  overflow: hidden;
+  background-size: contain;
   border-radius: 5px;
-  display: grid;
-  place-content: center;
 }
 .black-tile{
-  background-color: #779556;
+  /* background-color: #779556; */
+  background-color: transparent;
 }
 .white-tile{
-  background-color: #ebecd0;
-}
-img {
-  transform: scale(0.4);
+  /* background-color: #ebecd0; */
+  background-color: transparent;
 }
 .chess-piece{
-  height: 60px;
-  width: 60px;
-  background-size: contain;
+  display:block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-size: cover;
   cursor: grab;
 }
 .chess-piece:active{
@@ -211,24 +225,27 @@ img {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 40px;
-  height: 40px;
+  width: 70%;
+  height: 70%;
   border-radius: 50%;
   border: 5px solid black;
   opacity: 0.3;
 }
 .move-panel{
+  grid-area: 2/3/3/4;
   display: flex;
   flex-direction: column;
   width: 400px;
-  min-height: 450px;
-  max-height: 450px;
+  height: 100%;
   background-color:   rgb(33 32 29);
   overflow-x: none; 
   border-radius: 6px;
   padding: 6px;
 }
-button.quit {
+.ingame-buttons {
+  grid-area: 2/2/3/3;
+}
+.ingame-buttons>button{
   height: 40px;
   width: 80px;
   margin: 7px;
@@ -238,9 +255,9 @@ button.quit {
   box-shadow: 3px 3px #171717;
   color: #b1aeab;
   cursor: pointer;
-  font-size: 1.5rem
+  font-size: 1.5rem;
 }
-button.quit:hover{
+.ingame-buttons>button:hover{
   background-color: #4e4b48;
 }
 
@@ -339,6 +356,11 @@ div.public-games, div.my-games{
   margin: 0 0 7px 0;
   color: #b1aeab;
 }
+
+
+/*=============================
+      MOVES PANEL PIECES IMAGE
+===============================*/
 .piece {
   height: 25px;
   width: 25px;

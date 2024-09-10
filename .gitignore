@@ -5,6 +5,7 @@ backend/src/ChessLogic/image.png
 backend/node_modules/
 backend/package-lock.json
 backend/.env
+backend/src/testAPI.http
 
 frontend/.env
 frontend/node_modules/

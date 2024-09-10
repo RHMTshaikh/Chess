@@ -1,12 +1,10 @@
-// Chess\frontend\src\App.tsx
-
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import DashBoard from './pages/DashBoard';
 import Room from './pages/Room';
 import LoginButtons from './components/LoginButtons';
-import NewLoginForm from './components/NewLoginForm';
+import SignupForm from './components/SgnupForm';
 import LoginForm from './components/LoginForm';
 import { GameContextProvider } from './context/GameContext';
 import ErrorPage from './pages/ErrorPage';
@@ -22,8 +20,8 @@ function App() {
                 <Routes>
                     <Route path='/' element={!user ? <LandingPage /> : <Navigate to={'/dashboard'}/>} >
                         <Route index element={!user ? <LoginButtons /> : <Navigate to={'/dashboard'}/>} />
-                        <Route path='new-login' element={!user ? <NewLoginForm /> : <Navigate to={'/dashboard'}/>} />
-                        <Route path='login' element={!user ? <LoginForm /> : <Navigate to={'/'}/>} />
+                        <Route path='signup' element={!user ? <SignupForm /> : <Navigate to={'/dashboard'}/>} />
+                        <Route path='login' element={!user ? <LoginForm /> : <Navigate to={'/dashboard'}/>} />
                     </Route>
                     
                         <Route path='/dashboard'  element={user ? 

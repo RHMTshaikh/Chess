@@ -1,9 +1,5 @@
-// Chess\frontend\src\components\PublicGames.tsx
-
-import { useEffect, useState, useRef } from "react";
-import { useGameContext } from "../hooks/useGameContext";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { connected } from "process";
 
 interface Game {
 	game_id: number;
@@ -16,22 +12,23 @@ function PublicGames() {
 	const [gamelist, setGamelist] = useState<Game[]>([]);
     const navigate = useNavigate()
 
+	const fetchGames = async () =>{
+		console.log('fetching public games...');
+		const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/public-games`, {
+			method: 'GET',
+			credentials: 'include',
+			headers: { 'Content-Type': 'application/json' },
+		});
+		const json = await response.json();
+		
+		if (!response.ok) {
+			console.log(json.error);
+		} else {
+			setGamelist(json);
+		}
+	};
+
 	useEffect(() => {
-		const fetchGames = async () =>{
-			console.log('fetching public games...');
-			const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/public-games`, {
-				method: 'GET',
-				credentials: 'include',
-				headers: { 'Content-Type': 'application/json' },
-			});
-			const json = await response.json();
-			
-			if (!response.ok) {
-				console.log(json.error);
-			} else {
-				setGamelist(json);
-			}
-		};
 		fetchGames();
 
         const intervalId = setInterval(fetchGames, 100000);
@@ -39,8 +36,8 @@ function PublicGames() {
         return () => clearInterval(intervalId);
 	}, []);
 
-	const spectate = (gameId: number) => {
-        navigate('/room', { state: { mode: 'spectate', gameId } });
+	const spectate = (game_id: number) => {
+        navigate('/room', { state: { role:'SPECTATOR', game_id } });
 	};
 
 	return (

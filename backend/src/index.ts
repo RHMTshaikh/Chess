@@ -1,63 +1,55 @@
-// Chess\backend\src\index.ts
-
+import { startHttpServer } from "./HTTP-Servers";
 import dotenv from 'dotenv';
-import express from 'express';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
-
-import userRoutes from './routes/userRoutes';
-import { startWebSocketServer } from './GameManager';
-import { passConnection } from './DataBaseLogic/dbLogic';
-import { Pool } from 'pg';
+import startWebSocketServer from "./Websocket";
+import { startPoolConnection as connectDB } from "./DBMS";
 
 dotenv.config();
 
-const app = express();
 
-app.use(cors({
-    origin: process.env.ORIGIN,
-    credentials: true, // Allows cookies and other credentials to be sent
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify which methods are allowed
-    allowedHeaders: ['Content-Type', 'Authorization'], // Specify allowed headers
-}));
+connectDB();
+const port = process.env.PORT || 4000;
+const server = startHttpServer({ port: Number(port) });
+startWebSocketServer({server});
 
-// Handle preflight requests
-app.options('*', cors({
-    origin: process.env.ORIGIN,
-    credentials: true, // Allows cookies and other credentials to be sent
-    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Specify which methods are allowed
-    allowedHeaders: ['Content-Type', 'Authorization'], // Specify allowed headers
-}));
-  
-app.use(cookieParser())
-
-app.use(express.json()); 
-
-app.use((req, res, next) => {
-    console.log('method: ',req.method);
-    console.log('path: ',req.path);
-    console.log('body: ',req.body);
-    console.log('cookie: ',req.cookies);
-    next();
-});
-
-app.use('/api/user', userRoutes);
-
-(async () => {
-    console.log('trying to make database pool connection');
-    const pool = new Pool({
-        connectionString: process.env.CONNECTION_STRING,
-        ssl: {
-            rejectUnauthorized: false, 
-        },
-    });
-    passConnection(pool);
-
-    const PORT = process.env.PORT || 4000
-	const server = app.listen(PORT, () => {
-		console.log('Listening on port', PORT);
-	});
-
-    startWebSocketServer(server)
-
-})();
+// const routesConfig: RouteConfig = {
+//     route: '/api',
+//     routes: [
+//         {route: '/refresh-token',
+//             methods: [
+//                 {method: 'POST', controller: makeCallback(signUpUser)},
+//             ]
+//         },
+//         {route: '/user',
+//             methods: [
+//                 {method: 'use', controller: makeExpressMiddleware(authorizUser)},
+//             ],
+//             routes: [
+//                 {route: '/login',
+//                     methods: [
+//                         {method: 'POST', controller: makeCallback(loginUser)},
+//                     ]
+//                 },
+//                 {route: '/signup',
+//                     methods:[
+//                         {method: 'POST', controller: makeCallback(signUpUser)},
+//                     ],
+//                 },
+//                 {route: '/public-games',
+//                     methods:[
+//                         {method: 'GET', controller: makeCallback(getPublicGames)},
+//                     ],
+//                 },
+//                 {route: '/games',
+//                     methods:[
+//                         {method: 'GET', controller: makeCallback(myGames)},
+//                     ],
+//                 },
+//                 {route: '/refresh-token',
+//                     methods:[
+//                         {method: 'POST', controller: makeCallback(myGames)},
+//                     ],
+//                 },
+//             ],
+//         }
+//     ]
+// };
