@@ -4,7 +4,6 @@ import { useNavigate} from 'react-router-dom'
 import { useState } from 'react';
 import { useLogin } from '../hooks/useLogin';
 
-
 function SignupForm() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -60,7 +59,7 @@ function SignupForm() {
                 required
             />
             {error && <p className="error">{error}</p>}
-            <button type="submit" >
+            <button className="button-73" role="button" type="submit" >
                 Submit
             </button>
         </form>
@@ -68,3 +67,7 @@ function SignupForm() {
 }
 
 export default SignupForm;
+
+<button >Button 73</button>
+
+/* CSS */

@@ -1,3 +1,4 @@
+
 * {
   box-sizing: border-box; 
 }
@@ -28,12 +29,15 @@ html, body {
   /* flex-grow: 1; */
   /* min-height: fit-content; */
 }
+
 .landing-page-div{
   display: grid;
   grid-template-columns: 5fr 3fr;
   place-items: center;
   height: 100%;
 }
+
+
  .landing-page-div .board-image {
   height: 500px;
   width: 500px;
@@ -43,25 +47,134 @@ html, body {
   border-radius: 15px;
 }
 .landing-page-div button{
-  height: 80px;
-  width: 300px;
-  border-radius: 15px;
-  border: none;
-  margin: 10px;
-  font-size: 2rem;
-  font-family: 'Balsamiq Sans','Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-  font-weight: bolder;
-  color: white;
-  background-color: #81b64c;
+  appearance: none;
+  background-color: #ffffff00;
+  border-radius: 40em;
+  border-style: none;
+  box-shadow: #2f353d 0 -12px 6px inset;
+  box-sizing: border-box;
+  color: #ffffff;
   cursor: pointer;
-  box-shadow: 3px 3px #51722f;
-  transition-duration: 400ms;
-  transition-property: box-shadow, text-shadow;
+  display: inline-block;
+  font-family: -apple-system,sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -.24px;
+  margin: 0;
+  outline: none;
+  padding: 1rem 1.3rem;
+  quotes: auto;
+  text-align: center;
+  text-decoration: none;
+  transition: all .15s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
 }
+
 .landing-page-div button:hover {
-  box-shadow: 3px 3px #51722f, 0 0 10px #ffffff76, inset  0 0 40px 40px  #9fc569;
-  text-shadow: 0 3px 11px #484848;
+  background-color: #ffc229c9;
+  box-shadow: #ff6214da 0 -6px 8px inset;
+  transform: scale(1.05);
 }
+
+.landing-page-div button:active {
+  transform: scale(1.025);
+}
+
+@media (min-width: 768px) {
+  .landing-page-div button {
+    font-size: 1.5rem;
+    padding: .75rem 2rem;
+  }
+}
+
+
+.landing-page-div .button-73 {
+  appearance: none;
+  background-color: #ffffff00;
+  border-radius: 40em;
+  border-style: none;
+  box-shadow: #2f353d 0 -12px 6px inset;
+  box-sizing: border-box;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-block;
+  font-family: -apple-system,sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -.24px;
+  margin: 0;
+  outline: none;
+  padding: 1rem 1.3rem;
+  quotes: auto;
+  text-align: center;
+  text-decoration: none;
+  transition: all .15s;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.button-73:hover {
+  background-color: #ffc229c9;
+  box-shadow: #ff6214da 0 -6px 8px inset;
+  transform: scale(1.05);
+}
+
+.button-73:active {
+  transform: scale(1.025);
+}
+
+@media (min-width: 768px) {
+  .button-73 {
+    font-size: 1.5rem;
+    padding: .75rem 2rem;
+  }
+}
+
+
+.new-login-form{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.new-login-form label{
+  padding: 11px 0px;
+  font-size: 2rem;
+  color: white;
+  font-family:sans-serif;
+  font-weight: 600;
+}
+
+.new-login-form input{
+  border-radius: 12px;
+  padding: 10px 0px;
+  padding-left: 10px;
+  font-size: 2rem;
+  margin-bottom: 10px;
+  outline: none;
+  border-width: 2px;
+  font-family: sans-serif;
+}
+
+.new-login-form input:hover{
+  border-color: rgb(23, 36, 225);
+}
+
+.loginSignup{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.loginSignup button{
+  margin: 12px !important;
+  height: 4rem;
+  width: 17vw;
+}
+
 .landing-page-div button.guest{
   background-color: #454341;
   box-shadow: 3px 3px #1c1a19;
