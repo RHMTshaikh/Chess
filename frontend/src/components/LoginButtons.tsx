@@ -1,7 +1,17 @@
 import { Link } from 'react-router-dom'
+import { gsap } from "gsap";
+import { useGSAP } from '@gsap/react';
 
 export default function LoginButtons() {
     
+    useGSAP(()=>{
+        gsap.from(".loginSignup" , {
+            duration:1,
+            y:400,
+            opacity:0,
+        })
+    })
+
     return (
         <div className='loginSignup' >
             <Link to={'/signup'}>

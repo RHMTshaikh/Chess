@@ -9,7 +9,7 @@ html, body {
 .App {
   /* display: flex; */
   /* flex-direction: column; */
-  /* height: 100vh; */
+  height: 100vh;
   /* max-height: 100vh; */
   /* min-width: fit-content; */
   /* margin: 0; */
@@ -21,6 +21,7 @@ html, body {
   height: 100px;
   /* min-height: 100px; */
   background-color: #262522;
+  margin-bottom: 12px;
 }
 .content {
   /* position: relative; */
@@ -39,9 +40,9 @@ html, body {
 
 
  .landing-page-div .board-image {
-  height: 500px;
-  width: 500px;
-  background-image: url(../public/assets/image/board-and-piece.png);
+  height: 65vh;
+  width: 50vw;
+  background-image: url(../public/assets/image/chessImage.jpg);
   background-size: contain;
   background-repeat: no-repeat;
   border-radius: 15px;
@@ -73,8 +74,8 @@ html, body {
 }
 
 .landing-page-div button:hover {
-  background-color: #ffc229c9;
-  box-shadow: #ff6214da 0 -6px 8px inset;
+  background-color: #31d226c9;
+  box-shadow: #0fb85bda 0 -6px 8px inset;
   transform: scale(1.05);
 }
 
@@ -92,10 +93,10 @@ html, body {
 
 .landing-page-div .button-73 {
   appearance: none;
-  background-color: #ffffff00;
+  background-color: #21a12e76;
   border-radius: 40em;
   border-style: none;
-  box-shadow: #2f353d 0 -12px 6px inset;
+  box-shadow: #46505e 0 -12px 6px inset;
   box-sizing: border-box;
   color: #ffffff;
   cursor: pointer;
@@ -117,8 +118,8 @@ html, body {
 }
 
 .button-73:hover {
-  background-color: #ffc229c9;
-  box-shadow: #ff6214da 0 -6px 8px inset;
+  background-color: #31d226c9;
+  box-shadow: #0fb85bda 0 -6px 8px inset;
   transform: scale(1.05);
 }
 

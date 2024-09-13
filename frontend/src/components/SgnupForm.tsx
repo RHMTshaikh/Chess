@@ -3,6 +3,8 @@
 import { useNavigate} from 'react-router-dom'
 import { useState } from 'react';
 import { useLogin } from '../hooks/useLogin';
+import { gsap } from "gsap";
+import { useGSAP } from '@gsap/react';
 
 function SignupForm() {
     const [name, setName] = useState('');
@@ -31,6 +33,15 @@ function SignupForm() {
             navigate('/error', { state: { message: 'Login failed. Please try again.' } });
         }
     };
+
+
+    useGSAP(()=>{
+        gsap.from(".new-login-form" , {
+            duration:1,
+            y:400,
+            opacity:0,
+        })
+    })
 
     return (
         <form onSubmit={handleSubmit} className="new-login-form">
