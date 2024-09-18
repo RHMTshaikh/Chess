@@ -3,7 +3,8 @@
 import { useNavigate} from 'react-router-dom'
 import { useState } from 'react';
 import { useLogin } from '../hooks/useLogin';
-
+import { gsap } from "gsap";
+import { useGSAP } from '@gsap/react';
 
 function SignupForm() {
     const [name, setName] = useState('');
@@ -33,6 +34,15 @@ function SignupForm() {
         }
     };
 
+
+    useGSAP(()=>{
+        gsap.from(".new-login-form" , {
+            duration:1,
+            y:400,
+            opacity:0,
+        })
+    })
+
     return (
         <form onSubmit={handleSubmit} className="new-login-form">
             <label htmlFor="name">Name:</label>
@@ -60,7 +70,7 @@ function SignupForm() {
                 required
             />
             {error && <p className="error">{error}</p>}
-            <button type="submit" >
+            <button className="button-73" role="button" type="submit" >
                 Submit
             </button>
         </form>
@@ -68,3 +78,7 @@ function SignupForm() {
 }
 
 export default SignupForm;
+
+<button >Button 73</button>
+
+/* CSS */

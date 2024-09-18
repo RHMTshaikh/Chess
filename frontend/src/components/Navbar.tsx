@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '../hooks/useAuthContext';
+import { gsap } from "gsap";
+import { useGSAP } from '@gsap/react';
 
 export default function Navbar() {
     const { user, dispatch } = useAuthContext();
@@ -46,6 +48,14 @@ export default function Navbar() {
 			}
         }
 	}
+
+    useGSAP(()=>{
+        gsap.from(".navbar .logo" , {
+            duration:1,
+            y:-400,
+            opacity:0,
+        })
+    })
 
     return (
         <div className="navbar">
