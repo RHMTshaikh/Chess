@@ -11,8 +11,8 @@ export default function makeLogOutUser({ logOut }: any) {
             headers: {
                 'Content-Type': 'application/json',
                 'Set-Cookie': [
-                    `accessToken=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`,  // Remove access token cookie
-                    `refreshToken=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`, // Remove refresh token cookie
+                    `accessToken=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`,  // Remove access token cookie
+                    `refreshToken=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0`, // Remove refresh token cookie
                 ],
             },
             statusCode: 201,

@@ -14,8 +14,8 @@ export default function makeRenewToken({ refreshToken }: any) {
         return {
             headers: {
                 'Set-Cookie': [
-                    `accessToken=${newAccessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${accessTokenMaxAge}`, 
-                    `refreshToken=${newRefreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${refreshTokenMaxAge}`,
+                    `accessToken=${newAccessToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${accessTokenMaxAge}`, 
+                    `refreshToken=${newRefreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${refreshTokenMaxAge}`,
                 ],
             },
             statusCode: 201,

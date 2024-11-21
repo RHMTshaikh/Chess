@@ -18,8 +18,8 @@ export default function makeSignUpUser({ signUp }: any) {
             headers: {
                 'Content-Type': 'application/json',
                 'Set-Cookie': [
-                    `accessToken=${accessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${accessTokenMaxAge}`,  // Access token cookie
-                    `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${refreshTokenMaxAge}`, // Refresh token cookie
+                    `accessToken=${accessToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${accessTokenMaxAge}`,  // Access token cookie
+                    `refreshToken=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=${refreshTokenMaxAge}`, // Refresh token cookie
                 ],
             },
             statusCode: 201,
