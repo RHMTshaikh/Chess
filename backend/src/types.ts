@@ -120,15 +120,8 @@ export interface Cell {
 export interface Move {
     from: Cell,
     to: Cell,
+    promoteTo: number|null,
 }
-// export interface Game {
-//     whitePlayer: Player;
-//     blackPlayer: Player;
-//     spectators: WebSocket[];
-//     moves: Move[];
-//     startTime: Date;
-//     chessGame: Chess;
-// }
 export enum MessageType {
     INIT_GAME = "INIT_GAME",
     PICK = "PICK",
@@ -139,4 +132,5 @@ export enum MessageType {
     CURRENT_STATE = "CURRENT_STATE",
     SPECTATE_GAME = "SPECTATE_GAME",
     STOP_SPECTATING = "STOP_SPECTATING",
+    PROMOTE_TO = 'PROMOTE_TO',
 }

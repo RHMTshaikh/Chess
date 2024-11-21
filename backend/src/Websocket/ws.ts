@@ -4,7 +4,7 @@ import { Server } from 'http';
 import url from 'url';
 import { authorization } from '../Use-Cases';
 
-import { Player, MessageType, Move } from '../types';
+import { Player, MessageType } from '../types';
 import AppError from '../Errors/AppError';
 import GameManager from '../Core/Game-Manager/GameManager';
 
@@ -43,477 +43,350 @@ export default function makeWebSocketServer (gameManager: GameManager) {
 
             
             try {
-                if (req.headers.cookie) {
-                    const cookies = parse(req.headers.cookie);
-                    
-                    const email = await authorization({ token: cookies.accessToken });
+                if (!req.headers.cookie) throw new AppError('no cookie found', 400);
 
-                    ws.email = email;
-                    
-                    const parameters = url.parse(req.url ?? '', true).query as {
-                        role: 'PLAYER' | 'SPECTATOR',
-                        opponent: 'HUMAN' | 'BOT',
-                        color: 'white' | 'black' | 'random',
-                        game_id: string,
-                    };
+                const cookies = parse(req.headers.cookie);
+                
+                const email = await authorization({ token: cookies.accessToken });
 
-                    if(!parameters) {
-                        throw new AppError('no query parameters found', 400);
+                ws.email = email;
+                
+                const parameters = url.parse(req.url ?? '', true).query as {
+                    role: 'PLAYER' | 'SPECTATOR',
+                    opponent: 'HUMAN' | 'BOT',
+                    color: 'white' | 'black' | 'random',
+                    game_id: string,
+                };
+                
+                if(!parameters) throw new AppError('no query parameters found', 400);
+                
+                ws.role = parameters.role as 'PLAYER' | 'SPECTATOR';
+                if(ws.role !== 'PLAYER' && ws.role !== "SPECTATOR")  throw new AppError('invalid role, role can be either Player or SPECTATOR', 400);
+
+                if (ws.role === 'PLAYER') {
+                    ws.opponentType = parameters.opponent as 'HUMAN' | 'BOT' ;
+                    ws.color = assignColor(parameters.color as 'white' | 'black' | 'random');
+                    const results = await gameManager.createGame(ws as Player, 30*60*1000);
+
+                    if (results.type === 'GAME_CREATED') {
+
+                        ws.send(JSON.stringify({
+                            type:       'CONNECTED',
+                            game_id:    results.game_id,
+                            pieceColor: ws.color,
+                            turn:       results.turn === ws.color,
+                            board:      results.board,
+                            moves:      [],
+                            role:       'PLAYER',
+                            whiteTime:  results.whiteTime,
+                            blackTime:  results.blackTime,
+                        }))
+                        results.opponent.send(JSON.stringify({
+                            type:       'CONNECTED',
+                            game_id:    results.game_id,
+                            pieceColor: results.opponent.color,
+                            turn:       results.turn === results.opponent.color,
+                            board:      results.board,
+                            moves:      [],
+                            role:       'PLAYER',
+                            whiteTime:  results.whiteTime,
+                            blackTime:  results.blackTime,
+                        }))
                     }
+                    if (results.type === 'WAITING') {
+                        ws.send(JSON.stringify({
+                            type: 'WAITING',
+                            meassage: 'waiting for other player to join'
+                        }))
+                    }
+                }else if(ws.role === 'SPECTATOR') {
+                    ws.game_id = parameters.game_id as string;
 
-                    ws.role = parameters.role as 'PLAYER' | 'SPECTATOR';
-
-                    if (ws.role === 'PLAYER') {
-                        ws.opponentType = parameters.opponent as 'HUMAN' | 'BOT' ;
-                        ws.color = assignColor(parameters.color as 'white' | 'black' | 'random');
-                        try {
-                            const results = await gameManager.createGame(ws as Player, 30*60*1000);
-
-                            if (results.type === 'ERROR') {
-                                ws.send(JSON.stringify({
-                                    type: 'ERROR',
-                                    error: results.error
-                                }))
-                                return;
-                            }
-
-                            if (results.type === 'GAME_CREATED') {
-
-                                ws.send(JSON.stringify({
-                                    type:       'CONNECTED',
-                                    game_id:    results.game_id,
-                                    pieceColor: ws.color,
-                                    turn:       results.turn === ws.color,
-                                    board:      results.board,
-                                    moves:      [],
-                                    role:       'PLAYER',
-                                    whiteTime:  results.whiteTime,
-                                    blackTime:  results.blackTime,
-                                }))
-                                results.opponent.send(JSON.stringify({
-                                    type:       'CONNECTED',
-                                    game_id:    results.game_id,
-                                    pieceColor: results.opponent.color,
-                                    turn:       results.turn === results.opponent.color,
-                                    board:      results.board,
-                                    moves:      [],
-                                    role:       'PLAYER',
-                                    whiteTime:  results.whiteTime,
-                                    blackTime:  results.blackTime,
-                                }))
-                                
-                            } else if (results.type === 'WAITING') {
-                                ws.send(JSON.stringify({
-                                    type: 'WAITING',
-                                    meassage: 'waiting for other player to join'
-                                }))
-                                
-                            }
-                        
-                        } catch (error) {
-                            if (error instanceof Error) {
-                                ws.send(JSON.stringify({
-                                    type: 'ERROR',
-                                    error: error.message
-                                }))
-                            }
-                        }
-                    }else if(ws.role === 'SPECTATOR') {
-                        ws.game_id = parameters.game_id as string;
-
-                        try {
-                            const result = gameManager.spectateGame(ws);
-                            
-                            if (result.type === 'ERROR') {
-                                ws.send(JSON.stringify({
-                                    type: 'ERROR',
-                                    error: result.error
-                                }))
-                                return;
-                            }
+                    const result = gameManager.spectateGame(ws);
+                    
+                    if (result.type === 'SPECTATING') {
+                        ws.send(JSON.stringify({
+                            type: 'SPECTATE',
+                            role: 'SPECTATOR',
+                            board: result.board,
+                            moves: result.moves,
+                            player1: result.players[0].email,
+                            player2: result.players[1].email,
+                        }))
     
-                            ws.send(JSON.stringify({
-                                type: 'SPECTATE',
-                                role: 'SPECTATOR',
-                                board: result.board,
-                                moves: result.moves,
-                                player1: result.players[0].email,
-                                player2: result.players[1].email,
+                        result.players.forEach((player: globalThis.WebSocket) => {
+                            player.send(JSON.stringify({
+                                type: 'SPECTATOR_JOINED',
+                                email: ws.email,
+                                spectatorCount: result.spectatorCount,
                             }))
+                        })
+                    }
+                } 
+
+                console.log('email: ', ws.email);
+                console.log('color: ', ws.color);
+                console.log('opponentType: ', ws.opponentType);
+                console.log('role: ', ws.role);
+                console.log('game_id: ', ws.game_id);
+
+                ws.on('message', async function incoming(data: WebSocket.Data) {
+                    
+                    try {
+                        
+                        let json: {
+                            type: string, 
+                            position: string,
+                            piece: number,
+                            email: string,
+                            game_id: number,
+                        } = JSON.parse(data.toString());
+            
+                        console.log('websocket message from client ', json);
         
+                        if (json.type === MessageType.PICK) {
+                            if (ws.role !== 'PLAYER') {
+                                throw new AppError('only players can make move', 400);
+                            }
+                            const results = gameManager.pickPiece(ws, json.position);
+                            ws.send(JSON.stringify({
+                                type: 'VALID_MOVES',
+                                validMoves: results.validMoves
+                            }))
+                            return			
+                        }
+        
+                        if (json.type === MessageType.PLACE) {
+                            if (ws.role !== 'PLAYER') throw new AppError('only players can make move', 400);
+    
+                            const result = await gameManager.placePiece(ws, json.position);
+
+                            const {
+                                move,
+                                board,
+                                whiteTime,
+                                blackTime,
+                                turn,
+                                check,
+                                checkmate,
+                                stalemate,
+                                promotionChoices,
+                                winner
+                            }  = result ;
+
+                            ws.send(JSON.stringify({
+                                type: 'CURRENT_STATE',
+                                move,
+                                board,
+                                whiteTime,
+                                blackTime,
+                                turn: turn === ws.color,
+                                check,
+                                checkmate,
+                                stalemate,
+                                promotionChoices,
+                                winner: winner?.color,
+                            }));
+                            result.opponent.send(JSON.stringify({
+                                type: 'OPPONENT_MOVE',
+                                move,
+                                board,
+                                whiteTime,
+                                blackTime,
+                                turn: turn === result.opponent.color,
+                                check,
+                                checkmate,
+                                stalemate,
+                                winner: winner?.color,
+                            }));
+                            result.spectators.forEach((ws: globalThis.WebSocket) => {
+                                ws.send(JSON.stringify({
+                                    type: 'MOVE',
+                                    move,
+                                    board,
+                                    whiteTime,
+                                    blackTime,
+                                    check, // need to implement in spectator mode
+                                    checkmate, // need to implement in spectator mode
+                                    stalemate,
+                                    turn: false,
+                                    winner: winner?.color,
+                                }))
+                            })    
+                            return;
+                        }
+        
+                        if (json.type === MessageType.PROMOTE_TO) {
+                            if (ws.role !== 'PLAYER') throw new AppError('only players can promote a pawn', 400);
+                            
+                            const result = await gameManager.promotePawn(ws, json.piece);
+
+                            const {
+                                move,
+                                board,
+                                whiteTime,
+                                blackTime,
+                                turn,
+                                check,
+                                checkmate,
+                                stalemate,
+                                promotionChoices,
+                                winner
+                            }  = result ;
+
+                            ws.send(JSON.stringify({
+                                type: 'CURRENT_STATE',
+                                move,
+                                board,
+                                whiteTime,
+                                blackTime,
+                                turn: turn === ws.color,
+                                check,
+                                checkmate,
+                                stalemate,
+                                promotionChoices,
+                                winner: winner?.color,
+                            }));
+                            result.opponent.send(JSON.stringify({
+                                type: 'OPPONENT_MOVE',
+                                move,
+                                board,
+                                whiteTime,
+                                blackTime,
+                                turn: turn === result.opponent.color,
+                                check,
+                                checkmate,
+                                stalemate,
+                                winner: winner?.color,
+                            }));
+                            result.spectators.forEach((ws: globalThis.WebSocket) => {
+                                ws.send(JSON.stringify({
+                                    type: 'MOVE',
+                                    move,
+                                    board,
+                                    whiteTime,
+                                    blackTime,
+                                    check, // need to implement in spectator mode
+                                    checkmate, // need to implement in spectator mode
+                                    stalemate,
+                                    turn: false,
+                                    winner: winner?.color,
+                                }))
+                            })    
+                            return;
+                        }
+        
+                        if (json.type === MessageType.CURRENT_STATE) {
+                            const board = gameManager.currentState({ player: ws });
+                            ws.send(JSON.stringify({
+                                type: 'CURRENT_STATE',
+                                board,
+                            }))
+                            return
+                        }
+        
+                        if (json.type === MessageType.QUIT_WAITING) {
+                            gameManager.leaveGame(ws);
+                            ws.send(JSON.stringify({
+                                type: 'QUIT_WAITING',
+                            }))
+                            return
+                        }
+                        
+                        if (json.type === MessageType.QUIT_GAME) {
+                            if (ws.role !== 'PLAYER') throw new AppError('only players can quit game', 400);
+    
+                            const result = await gameManager.leaveGame(ws);
+    
+                            result.opponent.send(JSON.stringify({
+                                type: 'OPPONENT_LEFT',
+                                message: `${result.opponent.color} wins because, ${ws.color} left the game`,
+                            }))
+    
+                            result.spectators.forEach((spectator: globalThis.WebSocket) => {
+                                spectator.send(JSON.stringify({
+                                    type: 'PLAYER_LEFT',
+                                    message: `${result.opponent.color} wins because, ${ws.color} left the game`,
+                                }))
+                            })
+                            return
+                        }
+        
+                        if (json.type === MessageType.STOP_SPECTATING) {
+                            if (ws.role !== 'SPECTATOR') throw new AppError('only spectators can stop spectate', 400);                            
+    
+                            const result = gameManager.removeSpectator(ws);
+    
                             result.players.forEach((player: globalThis.WebSocket) => {
                                 player.send(JSON.stringify({
-                                    type: 'SPECTATOR_JOINED',
+                                    type: 'SPECATOR_LEFT',
                                     email: ws.email,
                                     spectatorCount: result.spectatorCount,
                                 }))
                             })
-                        } catch (error) {
+                            return;
+                        }           
+                    } catch (error) {
+                        if (error instanceof Error) {
                             ws.send(JSON.stringify({
                                 type: 'ERROR',
-                                error: (error as Error).message
+                                error: error.message
                             }))
                         }
-                    } else {
-                        throw new AppError('invalid role, role can be either Player or SPECTATOR', 400);
                     }
-
-                    console.log('email: ', ws.email);
-                    console.log('color: ', ws.color);
-                    console.log('opponentType: ', ws.opponentType);
-                    console.log('role: ', ws.role);
-                    console.log('game_id: ', ws.game_id);
-
-                } else {
-                    throw new AppError('no cookie found', 400);
-                }
+                        
+                });
                 
+                
+                ws.on('close', async (code, reason) => {
+                    console.log(`websocket Connection closed: ${code} - ${reason}`);
+                    if (code === 1005) { //intentional close
+                        return;
+                    }
+                    if (code === 1001) { //abrupt close
+                        if (ws.role === 'PLAYER') {
+                            
+                            const result = await gameManager.leaveGame(ws);
+    
+                            result.spectators.forEach((spectator: globalThis.WebSocket) => {
+                                spectator.send(JSON.stringify({
+                                    type: 'PLAYER_LEFT',
+                                    message: `${result.opponent.color} wins because, ${ws.color} left the game`,
+                                }))
+                            })
+                            result.opponent.send(JSON.stringify({
+                                type: 'OPPONENT_LEFT',
+                                message: `${result.opponent.color} wins because, ${ws.color} left the game`,
+                            }))
+        
+                        }else if(ws.role === 'SPECTATOR') { 
+                            const result = gameManager.removeSpectator(ws);
+        
+                            result.players.forEach((player: globalThis.WebSocket) => {
+                                player.send(JSON.stringify({
+                                    type: 'SPECATOR_LEFT',
+                                    email: ws.email,
+                                    spectatorCount: result.spectatorCount,
+                                }))
+                            })
+                        }                    
+                        return;
+                    }
+                });
+    
+                ws.on('error', (error) => {
+                    console.error('websocket Connection error:', error);
+                });
             } catch (error) {
+                console.log('error message: ', (error as Error).message);
+                console.log('error stack: ', (error as Error).stack);
+                
                 ws.send(JSON.stringify({
                     type: 'ERROR',
                     error: (error as Error).message
                 }))
             }
     
-            ws.on('message', async function incoming(data: WebSocket.Data) {
-                
-                let json: {
-                    type: string, 
-                    position: string,
-                    piece: string,
-                    email: string,
-                    game_id: number,
-                } = JSON.parse(data.toString());
-    
-                console.log('websocket message from client ', json);
-
-                if (json.type === MessageType.PICK) {
-                    try {
-                        if (ws.role !== 'PLAYER') {
-                            throw new AppError('only players can make move', 400);
-                        }
-                        const results = gameManager.pickPiece(ws, json.position);
-                        ws.send(JSON.stringify({
-                            type: 'VALID_MOVES',
-                            validMoves: results.validMoves
-                        }))
-                        
-                    } catch (error) {
-                        ws.send(JSON.stringify({
-                            type: 'ERROR',
-                            error: (error as Error).message
-                        }))
-                    }
-                    return			
-                }
-
-                if (json.type === MessageType.PLACE) {
-                    try {
-                        if (ws.role !== 'PLAYER') {
-                            throw new AppError('only players can make move', 400);
-                        }
-                        const result = await gameManager.placePiece(ws, json.position)
-
-                        if (result.type === 'ERROR') {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: result.error
-                            }))
-                            return;
-                        }
-                        const {move, board, whiteTime, blackTime, turn}  = result ;
-                        
-                        result.opponent.send(JSON.stringify({
-                            type: 'OPPONENT_MOVE',
-                            move,
-                            board,
-                            whiteTime,
-                            blackTime,
-                            turn: turn === result.opponent.color,
-                        }))
-                        result.spectators.forEach((ws: globalThis.WebSocket) => {
-                            ws.send(JSON.stringify({
-                                type: 'MOVE',
-                                move,
-                                board,
-                                whiteTime,
-                                blackTime,
-                            }))
-                        })
-                    } catch (error) {
-                        if (error instanceof Error) {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: error.message,
-                                board: gameManager.currentState({ player: ws }),
-                            }))
-                        }
-                    }
-                    return
-                }
-
-                if (json.type === MessageType.CURRENT_STATE) {
-                    try {
-                        const results = gameManager.currentState({ player: ws });
-                        ws.send(JSON.stringify({
-                            type: 'CURRENT_STATE',
-                            board: results,
-                        }))
-                        
-                    } catch (error) {
-                        if (error instanceof Error) {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: error.message
-                            }))
-                        }
-                    }
-                    return
-                }
-
-                if (json.type === MessageType.QUIT_WAITING) {
-                    try {
-                        gameManager.removePendingUser({ player: ws });
-                        ws.send(JSON.stringify({
-                            type: 'QUIT_WAITING',
-                        }))
-                        
-                    } catch (error) {
-                        if (error instanceof Error) {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: error.message
-                            }))
-                        }
-                    }
-                    return
-                }
-
-                // if (json.type === MessageType.INIT_GAME) {
-                //     try {
-                //         if (ws.role !== 'PLAYER') {
-                //             throw new AppError('only players can create a game', 400);
-                //         }
-                //         const results = await gameManager.createGame(ws as Player, 30*60*1000);
-
-                //         if (results.type === 'ERROR') {
-                //             ws.send(JSON.stringify({
-                //                 type: 'ERROR',
-                //                 error: results.error
-                //             }))
-                //             return;
-                //         }
-
-                //         if (results.type === 'GAME_CREATED') {
-
-                //             ws.send(JSON.stringify({
-                //                 type:       'CONNECTED',
-                //                 game_id:    results.game_id,
-                //                 pieceColor: ws.color,
-                //                 turn:       results.turn === ws.color,
-                //                 board:      results.board,
-                //                 moves:      [],
-                //                 role:       'PLAYER',
-                //                 whiteTime:  results.whiteTime,
-                //                 blackTime:  results.blackTime,
-                //             }))
-                //             results.opponent.send(JSON.stringify({
-                //                 type:       'CONNECTED',
-                //                 game_id:    results.game_id,
-                //                 pieceColor: results.opponent.color,
-                //                 turn:       results.turn === results.opponent.color,
-                //                 board:      results.board,
-                //                 moves:      [],
-                //                 role:       'PLAYER',
-                //                 whiteTime:  results.whiteTime,
-                //                 blackTime:  results.blackTime,
-                //             }))
-                            
-                //         } else if (results.type === 'WAITING') {
-                //             ws.send(JSON.stringify({
-                //                 type: 'WAITING',
-                //                 meassage: 'waiting for other player to join'
-                //             }))
-                            
-                //         }
-                        
-                //     } catch (error) {
-                //         if (error instanceof Error) {
-                //             ws.send(JSON.stringify({
-                //                 type: 'ERROR',
-                //                 error: error.message
-                //             }))
-                //         }
-                //     }
-                //     return
-                // }
-
-                if (json.type === MessageType.QUIT_GAME) {
-                    try {
-                        if (ws.role !== 'PLAYER') {
-                            throw new AppError('only players can quit game', 400);
-                        }
-                        const result = await gameManager.leaveGame(ws);
-
-                        if (result.type === 'ERROR') {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: result.error
-                            }))
-                            return;
-                        }
-
-                        result.opponent.send(JSON.stringify({
-                            type: 'OPPONENT_LEFT',
-                            message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                        }))
-
-                        result.spectators.forEach((spectator: globalThis.WebSocket) => {
-                            spectator.send(JSON.stringify({
-                                type: 'PLAYER_LEFT',
-                                message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                            }))
-                        })
-                        
-                    } catch (error) {
-                        if (error instanceof Error) {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: error.message
-                            }))
-                        }
-                    }
-                    return
-                }
-
-                // if (json.type === MessageType.SPECTATE) {
-                //     try {
-                //         if (ws.role !== 'SPECTATOR') {
-                //             throw new AppError('only spectators can spectate', 400);
-                //         }
-                //         const result = gameManager.spectateGame(ws);
-                        
-                //         if (result.type === 'ERROR') {
-                //             ws.send(JSON.stringify({
-                //                 type: 'ERROR',
-                //                 error: result.error
-                //             }))
-                //             return;
-                //         }
-
-                //         ws.send(JSON.stringify({
-                //             type: 'SPECTATE',
-                //             role: 'SPECTATOR',
-                //             board: result.board,
-                //             moves: result.moves,
-                //             player1: result.players[0].email,
-                //             player2: result.players[1].email,
-                //         }))
-    
-                //         result.players.forEach((player: globalThis.WebSocket) => {
-                //             player.send(JSON.stringify({
-                //                 type: 'SPECTATOR_JOINED',
-                //                 email: ws.email,
-                //                 spectatorCount: result.spectatorCount,
-                //             }))
-                //         })
-                //     } catch (error) {
-                //         ws.send(JSON.stringify({
-                //             type: 'ERROR',
-                //             error: (error as Error).message
-                //         }))
-                //     }
-                //     return
-                // }
-
-                if (json.type === MessageType.STOP_SPECTATING) {
-                    try {
-                        if (ws.role !== 'SPECTATOR') {
-                            throw new AppError('only spectators can stop spectate', 400);                            
-                        }
-                        const result = gameManager.removeSpectator(ws);
-
-                        if (result.type === 'ERROR') {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: result.error
-                            }))
-                            return;
-                        }
-
-                        result.players.forEach((player: globalThis.WebSocket) => {
-                            player.send(JSON.stringify({
-                                type: 'SPECATOR_LEFT',
-                                email: ws.email,
-                                spectatorCount: result.spectatorCount,
-                            }))
-                        })
-                    } catch (error) {
-                        ws.send(JSON.stringify({
-                            type: 'ERROR',
-                            error: (error as Error).message
-                        }))                        
-                    }
-                    return;
-                }           
-            });  
-            
-            ws.on('close', async (code, reason) => {
-                console.log(`websocket Connection closed: ${code} - ${reason}`);
-                if (code === 1005) {//intentional close
-                    return;
-                }
-                if (code === 1001) {//abrupt close
-                    if (ws.role === 'PLAYER') {
-                        if (gameManager.removePendingUser({ player: ws })) {
-                            return;                            
-                        }
-                        const result = await gameManager.leaveGame(ws);
-
-                        if (result.type === 'ERROR') {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: result.error
-                            }))
-                            return;
-                        }
-                        result.spectators.forEach((spectator: globalThis.WebSocket) => {
-                            spectator.send(JSON.stringify({
-                                type: 'PLAYER_LEFT',
-                                message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                            }))
-                        })
-                        result.opponent.send(JSON.stringify({
-                            type: 'OPPONENT_LEFT',
-                            message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                        }))
-    
-                    }else if(ws.role === 'SPECTATOR') { 
-                        const result = gameManager.removeSpectator(ws);
-
-                        if(result.type === 'ERROR') {
-                            ws.send(JSON.stringify({
-                                type: 'ERROR',
-                                error: result.error
-                            }))
-                            return;
-                        }
-    
-                        result.players.forEach((player: globalThis.WebSocket) => {
-                            player.send(JSON.stringify({
-                                type: 'SPECATOR_LEFT',
-                                email: ws.email,
-                                spectatorCount: result.spectatorCount,
-                            }))
-                        })
-                    }                    
-                    return;
-                }
-            });
-
-            ws.on('error', (error) => {
-                console.error('websocket Connection error:', error);
-            });
         });
 
         webSocketServer.on('error', (error) => {

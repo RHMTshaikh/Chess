@@ -10,7 +10,7 @@ html, body {
   /* flex-direction: column; */
   /* height: 100vh; */
   /* max-height: 100vh; */
-  /* min-width: fit-content; */
+  min-width: 600px;
   /* margin: 0; */
   background-color:#312e2b;
 }
@@ -34,7 +34,7 @@ html, body {
   place-items: center;
   height: 100%;
 }
- .landing-page-div .board-image {
+.landing-page-div .board-image {
   height: 500px;
   width: 500px;
   background-image: url(../public/assets/image/board-and-piece.png);
@@ -158,6 +158,7 @@ div.play-game{
   grid-template-rows: 3fr 24fr 1fr 3fr;
   grid-template-columns: 1fr 24fr;
   aspect-ratio: 25/31;
+  /* width: 90%; */
 }
 .grid {
   grid-area: 2/2/3/3;
@@ -235,8 +236,10 @@ div.play-game{
   grid-area: 2/3/3/4;
   display: flex;
   flex-direction: column;
-  width: 400px;
-  height: 100%;
+  width: 90%;
+  min-width: 200px;
+  max-width: 400px;
+  height: 400px;
   background-color:   rgb(33 32 29);
   overflow-x: none; 
   border-radius: 6px;

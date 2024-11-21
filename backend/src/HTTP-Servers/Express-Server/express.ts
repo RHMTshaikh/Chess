@@ -77,7 +77,7 @@ export function makeExpressCallback (controller: Function) { // here we are sepa
             })
         .catch((error: any) => next(error))
     }
-}
+};
 
 export function makeExpressMiddleware(middleware: Function) {
     return (req: Request, res: Response, next: Function) => {
@@ -106,8 +106,7 @@ export function makeExpressMiddleware(middleware: Function) {
             })
         .catch((error: any) => next(error));
     };
-}
-
+};
 
 app.use((err: any, req: Request, res: Response, next: Function) => {
     res.status(err.statusCode).json({ error: err.message });

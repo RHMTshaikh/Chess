@@ -10,16 +10,13 @@ export type PositionNotation =
 export interface Position {
     y: number, //row
     x: number, //column
-}
+};
 export interface Cell {
     piece: number,
     position: PositionNotation
-}
+};
 export interface Move {
     from: Cell,
     to: Cell,
-}
-// export interface MoveNotation {
-//     from: PositionNotation,
-//     to: PositionNotation,
-// }
+    promoteTo: number | null,
+};

@@ -1,3 +1,8 @@
+tree_output.txt
+tree_clipboard.txt
+
+.vscode/
+
 backend/src/logs.js
 backend/src/test.js
 backend/dist/

@@ -1,16 +1,11 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { useGameContext } from '../hooks/useGameContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Move, Position, PositionNotation } from '../types';
 import MovesPanel from './MovesPanel';
 
 function boardFromArray(board:number[][], vertcleAxis: number[], horizontalAxis:string[], heightChessBoard:number, widthChessBoard: number) : React.ReactNode[]{
     const tiles: React.ReactNode[] = [];
     let toggle = true;
-    const height = heightChessBoard/8;
-    const width = widthChessBoard/8;
-    console.log(height, width);
-    
     
     for (let i = 0; i < board.length; i++) {
         for (let j = 0; j < board.length; j++) {
@@ -36,75 +31,65 @@ function boardFromArray(board:number[][], vertcleAxis: number[], horizontalAxis:
     return tiles
 }
 
-interface ActivePiece {
+interface PickedPiece {
     element: HTMLDivElement,
     position: PositionNotation
 }
-interface ChessBoardProps {
-    ws: React.RefObject<WebSocket | null>;
-}
 
-const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
-    const {game:gameState, dispatch: gamedDispatch} = useGameContext();
+const ChessBoard: React.FC = () => {
+    const [board, setBoard] = useState<number[][]>([]);
+    const location = useLocation();
+    const pieceColor = useRef<string | null>(location.state.color);
+    const opponent = useRef<string>(location.state.opponent);
+    const role = useRef<string>(location.state.role);
+    const game_id = useRef<number>(location.state.game_id);
+    
+    const ws = useRef<WebSocket | null>(null);
+
     const chessBoardRef = useRef<HTMLDivElement>(null);
-    const activePiece  = useRef<ActivePiece | null>(null);
+    const pickedPiece  = useRef<PickedPiece | null>(null);
+    const [promotionChoices, setPromotionChoices] = useState<number[]>([]);
+    const pawnPromotionDialog = useRef<HTMLDialogElement>(null)
     const count = useRef<number>(1);
     const validMoves = useRef<PositionNotation[]>([]);
+    const movesArray = useRef<Move[]>([]);
     const opponentLeft = useRef<boolean>(false);
     
-    const role = useRef<string>( gameState!.role);
-    
-    const turn = useRef<boolean>(gameState?.turn!);
-    
-    const pieceColor = useRef<string | null>(gameState?.pieceColor!);
-    
-    const movesArray = useRef<Move[]>(gameState!.moves);
-    
-    const board = useRef<number[][]>(gameState!.board);
+    const turn = useRef<boolean>(false);
     const flip = useRef(false);
     const vertcleAxisState = useRef([8, 7, 6, 5, 4, 3, 2, 1,]);
     const horizontalAxisState = useRef(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
     
     const flipBoard = () => {
-        flip.current = !flip.current;
-        board.current = board.current.map(row => row.slice().reverse()).reverse();
+        setBoard(board.map(row => row.slice().reverse()).reverse());
         vertcleAxisState.current = vertcleAxisState.current.reverse();
         horizontalAxisState.current = horizontalAxisState.current.reverse();
-        gamedDispatch({type: 'SET-BOARD', payload: { board: board.current }})
+        flip.current = !flip.current;
     }    
-
-    const [reason, setReason] = useState('')
+    
+    const [dialogMessage, setDialogMessage] = useState('')
+    const dialogBoxRef = useRef<HTMLDialogElement>(null)
     const navigate =  useNavigate()
-    const dialogRef = useRef<HTMLDialogElement>(null)
     
     useEffect(() => {
 
-        if (pieceColor.current === 'black') {
-            console.log('flip in use effect');
-            flipBoard();        
-            
-        }else{
-            console.log('no flip in use effect');
-            
-            gamedDispatch({ type: 'SET-BOARD', payload: { board: board.current }})
-        }
         const unload = (e: BeforeUnloadEvent) =>{
             e.preventDefault();
             if (!opponentLeft) {
                 quitGame()
             }
         }
-        window.addEventListener('beforeunload', unload)
+        window.addEventListener('beforeunload', unload);
 
-        dialogRef.current!.addEventListener("click", e => {
-            const dialogDimensions = dialogRef.current!.getBoundingClientRect()
+        dialogBoxRef.current!.addEventListener("click", e => {
+            const dialogDimensions = dialogBoxRef.current!.getBoundingClientRect()
             if (
               e.clientX < dialogDimensions.left ||
               e.clientX > dialogDimensions.right ||
               e.clientY < dialogDimensions.top ||
               e.clientY > dialogDimensions.bottom
             ) {
-              dialogRef.current!.close()
+              dialogBoxRef.current!.close()
             }
         })
         
@@ -112,54 +97,45 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
             window.removeEventListener('beforeunload', unload)
         }
     },[]);
+
+    if (ws.current === null) {
+        if (role.current === 'PLAYER' ) {
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?color=${pieceColor.current}&opponent=${opponent.current}&role=${role.current}`);
+
+        } else if(role.current === 'SPECTATOR') {
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?role=${role.current}&game_id=${game_id.current}`);
+            
+        } else {
+            throw new Error('Invalid role');
+        }
+    }
+
     
-    const index = (position: PositionNotation):{
-        y: number, //row
-        x: number, //column
-        } => { // position: a3
-        let x = horizontalAxisState.current.indexOf(position.charAt(0));
-        let y = vertcleAxisState.current.indexOf(parseInt(position.charAt(1)))
-        return {y,x}
-    }
-    const indexToNotation = (position: Position): PositionNotation => {
-        return `${horizontalAxisState.current[position.x]}${vertcleAxisState.current[position.y]}` as PositionNotation;
-    }
 
     ws.current!.onmessage = (event: MessageEvent) => {
         
-        const json: {
-            type: 'ERROR',
-            error: string
-        } | {
-            type: 'VALID_MOVES',
-            validMoves: PositionNotation[]
-        } | {
-            type: 'OPPONENT_MOVE',
-            move: Move,
-            board: number[][],
-            turn: boolean,
-        } | {
-            type: 'MOVE',
-            move: Move,
-            board: number[][]
-        } | {
-            type: 'CURRENT_STATE',
-            board: number[][]
-        } | {
-            type: 'OPPONENT_LEFT',
-            message: string
-        } | {
-            type: 'PLAYER_LEFT',
-            message: string
-        } | {
-            type: 'GAME_OVER',
-            message: string
-        } = JSON.parse(event.data);
+        const json = JSON.parse(event.data);
         console.log('Message from websocket server:', json);
 
         if (json.type === 'ERROR') {
             console.log(json.error);
             return
+        }
+        if (json.type === 'CONNECTED') {
+            if (pieceColor.current === 'black') {
+                flip.current = !flip.current;
+                vertcleAxisState.current = vertcleAxisState.current.reverse();
+                horizontalAxisState.current = horizontalAxisState.current.reverse();
+                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
+            }
+            setBoard(json.board);
+            turn.current = json.turn;
+            return;
+        }
+        if (json.type === 'SPECTATE') {
+            setBoard(json.board);     
+            movesArray.current = json.moves;       
+            return;
         }
         if (json.type === 'VALID_MOVES') {
             if (validMoves) {
@@ -176,66 +152,102 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
             return
         }
         if (json.type === 'OPPONENT_MOVE') {
-            const chessboard = chessBoardRef.current;
-            
-            if (chessboard) {
-                if (flip.current) {
-                    json.board = json.board.map(row => row.slice().reverse()).reverse();
-                }
-                board.current = json.board
-                
-                count.current = 1
-                movesArray.current.push(json.move);
-                console.log('dispatching move');
-                
-                gamedDispatch({ type: 'MOVE', payload: { move: json.move, board:board.current, turn:json.turn } });
-                    
-                turn.current = true
+            if (json.checkmate) {
+                console.log('Checkmate');  
+                setDialogMessage('You lost by Checkmate!');
+                dialogBoxRef.current!.showModal();          
+            } else if (json.stalemate) {
+                console.log('Stalemate');
+                setDialogMessage('Stalemate!')              
             }
+            
+            if (flip.current) {
+                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+            }
+            setBoard(json.board);
+            
+            count.current = 1
+            movesArray.current.push(json.move);
+            
+            turn.current = true
             return
         }
         if (json.type === 'MOVE') { // for spectator
             if (flip.current) {
-                json.board = json.board.map(row => row.slice().reverse()).reverse();
+                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
             }
-            board.current = json.board
+            if (json.checkmate) {
+                console.log('Checkmate');  
+                setDialogMessage(`${json.winner} won by Checkmate!`);
+                dialogBoxRef.current!.showModal();          
+            } else if (json.stalemate) {
+                console.log('Stalemate');
+                setDialogMessage('Stalemate!')              
+            }
+            setBoard(json.board)
             movesArray.current.push(json.move)
             count.current = 1;
-            gamedDispatch({ type: 'MOVE', payload: { move: json.move, board: board.current, turn: false } })
-            return
+
+            return;
         }
+
         if (json.type === 'CURRENT_STATE') {
-            board.current = json.board
-            if (board) {
-                if (flip.current) {
-                    board.current = board.current.map(row => row.slice().reverse()).reverse();
-                }
-                count.current = 1;
-                gamedDispatch({ type: 'SET-BOARD', payload: { board: board.current }})
+            if (flip.current) {
+                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
             }
-            return
+            setBoard(json.board);
+            count.current = 1;
+
+            if (json.move) movesArray.current.push(json.move);
+
+            if(json.promotionChoices){
+                setPromotionChoices(json.promotionChoices);
+                pawnPromotionDialog.current!.showModal();
+                return;
+
+            } else if (json.checkmate) {
+                setDialogMessage('You won by Checkmate!');
+                dialogBoxRef.current!.showModal();
+                
+            } else if (json.stalemate) {
+                setDialogMessage('Stalemate!');
+                dialogBoxRef.current!.showModal();
+            }
+            return;
         }
         if (json.type === 'OPPONENT_LEFT') {
             opponentLeft.current = true
-            setReason(json.message)
-            dialogRef.current!.showModal()
+            setDialogMessage(json.message)
+            dialogBoxRef.current!.showModal()
             ws.current?.close();
             return
         }
         if (json.type === 'PLAYER_LEFT') {
             opponentLeft.current = true
-            setReason(json.message)
-            dialogRef.current!.showModal()
+            setDialogMessage(json.message)
+            dialogBoxRef.current!.showModal()
             ws.current?.close();
             return
         }
         if (json.type === 'GAME_OVER') {
             opponentLeft.current = true
-            setReason(json.message)
-            dialogRef.current!.showModal()
+            setDialogMessage(json.message)
+            dialogBoxRef.current!.showModal()
             ws.current?.close();
             return
         }
+    }
+
+    const index = (position: PositionNotation):{
+        y: number, //row
+        x: number, //column
+        } => { // position: a3
+        let x = horizontalAxisState.current.indexOf(position.charAt(0));
+        let y = vertcleAxisState.current.indexOf(parseInt(position.charAt(1)))
+        return {y,x}
+    }
+    const indexToNotation = (position: Position): PositionNotation => {
+        return `${horizontalAxisState.current[position.x]}${vertcleAxisState.current[position.y]}` as PositionNotation;
     }
 
     const cellPosition = (element: HTMLDivElement): PositionNotation   => {
@@ -259,20 +271,6 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
         
         return (horizontalAxisState.current[i]+vertcleAxisState.current[j]) as PositionNotation;
     };
-
-    // const tileDivElement = (y:number, x:number, piece:number) => {
-    //     const imgSrc = piece !== 9 ? `assets/image/${piece<9 ? ('0'+piece):(piece)}.png` : '';
-
-    //     return (
-    //         <div 
-    //             className={`tile ${((x+y) % 2 === 0) ? 'white-tile' : 'black-tile'}`} 
-    //             id={`${horizontalAxisState.current[x]}${vertcleAxisState.current[y]}`} 
-    //             key={`${horizontalAxisState.current[x]}${vertcleAxisState.current[y]}`}
-    //         >
-    //             {imgSrc && <div style={{ backgroundImage: `url(${imgSrc})` }} className="chess-piece"></div>}
-    //         </div>
-    //     )
-    // }
     
     const grabPiece = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         if (count.current === 1 && role.current === 'PLAYER' ) {
@@ -292,16 +290,18 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
                     element.style.height = `${height}px`;
                     document.addEventListener('mouseup', dropPiece);
                     
-                    activePiece.current = {
+                    pickedPiece.current = {
                         element,
                         position: cellPosition(element)
                     }
-                    console.log('grabPiece: ', activePiece.current.position);
+                    console.log('grabPiece: ', pickedPiece.current.position);
                     
                     ws.current!.send(JSON.stringify({
                         type: 'PICK',
-                        position: activePiece.current.position
+                        position: pickedPiece.current.position
                     }))
+                    console.log('sent pick');
+                    
                 }
             }else console.log('turn: ', turn.current);
         }
@@ -310,7 +310,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
     const movePiece = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
        
         const chessboard = chessBoardRef.current;
-        if (activePiece.current && chessboard) {
+        if (pickedPiece.current && chessboard) {
             const height = chessBoardRef.current?.offsetHeight! / 8;
             const width = chessBoardRef.current?.offsetWidth! / 8;
             const minX = chessboard.offsetLeft;
@@ -321,14 +321,14 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
             const pieceX = e.clientX - height / 2;
             const pieceY = e.clientY - width / 2;
             
-            activePiece.current.element!.style.position = 'absolute';
-            activePiece.current.element!.style.left = 
+            pickedPiece.current.element!.style.position = 'absolute';
+            pickedPiece.current.element!.style.left = 
                 e.clientX < minX ? 
                 `${minX - 25}px` : 
                 e.clientX > maxX ? 
                     `${maxX - 35}px` : 
                     `${pieceX}px`;
-            activePiece.current.element!.style.top = 
+            pickedPiece.current.element!.style.top = 
                 e.clientY < minY ? 
                     `${minY - 25}px` : 
                     e.clientY > maxY ? 
@@ -339,48 +339,47 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
 
     const dropPiece = (e: MouseEvent) => {
         const chessboard = chessBoardRef.current;
-        const dropPosition = cellPosition(activePiece.current!.element)
+        const dropPosition = cellPosition(pickedPiece.current!.element);
         console.log('dropPosition: ', dropPosition);
-        
-        
-        if (activePiece.current?.element && chessboard && validMoves.current.includes(dropPosition)) {
-
+    
+        if (pickedPiece.current?.element && chessboard && validMoves.current.includes(dropPosition)) {
             removeValidMoves();
-
-            let {y, x} = index(activePiece.current.position);
+    
+            const newBoard = board.map(row => row.slice());
+    
+            let { y, x } = index(pickedPiece.current.position);
             const from = {
-                position: (activePiece.current.position),
-                piece: board.current[y][x]
+                position: pickedPiece.current.position,
+                piece: newBoard[y][x]
             };
-            board.current[y][x] = 9;
-            ({y,x} = index(dropPosition));
+            newBoard[y][x] = 9;
+            ({ y, x } = index(dropPosition));
             const to = {
-                position: (dropPosition),
-                piece: board.current[y][x]
+                position: dropPosition,
+                piece: newBoard[y][x]
             };
-            board.current[y][x] = from.piece;
-
-            const move = {from, to};
-
+            newBoard[y][x] = from.piece;
+    
+            const move = { from, to };
+    
             ws.current!.send(JSON.stringify({
                 type: 'PLACE',
                 position: dropPosition,
-                move //imgSrcPrev ? parseInt(imgSrcPrev.slice(-6,-4)) : 9
-            }))
+                move
+            }));
+    
+            setBoard(newBoard);
+            turn.current = false;
 
-            movesArray.current.push(move)
-            turn.current = false
-            gamedDispatch({ type: 'MOVE', payload: {move:move, board: board.current, turn: turn.current} })
-
-        } else{
-            activePiece.current!.element!.style.position = '';
-            activePiece.current!.element!.style.left = `0px`
-            activePiece.current!.element!.style.top  = `0px`
-            activePiece.current!.element!.style.zIndex = '0'
-            activePiece.current!.element!.style.width = ''
-            activePiece.current!.element!.style.height = ''
+        } else {
+            pickedPiece.current!.element!.style.position = '';
+            pickedPiece.current!.element!.style.left = `0px`;
+            pickedPiece.current!.element!.style.top = `0px`;
+            pickedPiece.current!.element!.style.zIndex = '0';
+            pickedPiece.current!.element!.style.width = '';
+            pickedPiece.current!.element!.style.height = '';
         }
-        activePiece.current = null
+        pickedPiece.current = null;
         document.removeEventListener('mouseup', dropPiece);
     };
 
@@ -398,17 +397,20 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
             
         if (count.current <= movesArray.current.length) {
             
-            const move = movesArray.current[movesArray.current.length-count.current]
+            const move = movesArray.current[movesArray.current.length - count.current];
             count.current++;
 
-            let {y, x} = index(move.to.position);
-            board.current[y][x] = move.to.piece;
-            ({y, x} = index(move.from.position));
-            board.current[y][x] = move.from.piece;
+            const newBoard = board.map(row => row.slice());
 
-            gamedDispatch({ type: 'SET-BOARD', payload: { board: board.current }})
+            let { y, x } = index(move.to.position);
+            newBoard[y][x] = move.to.piece;
+            ({ y, x } = index(move.from.position));
+            newBoard[y][x] = move.from.piece;
+
+            setBoard(newBoard);
         }
     }
+// console.log(movesArray.current);
 
     const redo = () => {
         if (validMoves) {
@@ -420,14 +422,18 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
 
         if (count.current > 1) {
             count.current--;
-            const move = movesArray.current[movesArray.current.length-count.current]
+            const move = movesArray.current[movesArray.current.length - count.current];
+            console.log(move);            
+            console.log(move.promoteTo);            
 
-            let {y, x} = index(move.to.position);
-            board.current[y][x] = move.from.piece;
-            ({y, x} = index(move.from.position));
-            board.current[y][x] = 9;
+            const newBoard = board.map(row => row.slice());
 
-            gamedDispatch({ type: 'SET-BOARD', payload: { board: board.current }})
+            let { y, x } = index(move.to.position);
+            newBoard[y][x] = move.promoteTo || move.from.piece;
+            ({ y, x } = index(move.from.position));
+            newBoard[y][x] = 9;
+
+            setBoard(newBoard);
         }
     }
     const currentStateFromLocalStorage = () => {
@@ -445,7 +451,6 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
             }));
             ws.current!.close();
         }
-        gamedDispatch({ type: 'END-GAME'})
         navigate('/dashboard');
     }
     const exitGame = () =>{
@@ -455,12 +460,11 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
             }))
             ws.current!.close();
         }
-        gamedDispatch({ type: 'END-GAME'})
         navigate('/dashboard')
     }
 
     return (
-        <>
+        <div className='room'>
             <div className='chessboard'>
                 <div className='verticle'>
                     {vertcleAxisState.current.map((x, index) => (
@@ -473,7 +477,7 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
                     onMouseDown={grabPiece}
                     onMouseMove={movePiece}
                 >
-                    {boardFromArray(board.current, vertcleAxisState.current, horizontalAxisState.current, chessBoardRef.current?.offsetHeight!, chessBoardRef.current?.offsetWidth!)}
+                    {boardFromArray(board, vertcleAxisState.current, horizontalAxisState.current, chessBoardRef.current?.offsetHeight!, chessBoardRef.current?.offsetWidth!)}
                 </div>
                 <div className='horizontal'>
                     {horizontalAxisState.current.map((x, index) => (
@@ -490,10 +494,25 @@ const ChessBoard: React.FC<ChessBoardProps> = ({ ws }) => {
 
             <MovesPanel movesArray={movesArray} undo={undo} redo={redo} currentStateFromServer={currentStateFromServer} indexToNotation={indexToNotation} />
 
-            <dialog className='dialog-room' ref={dialogRef}>
-                <p>{`${reason}`}</p>
+            <dialog className='dialog-room' ref={dialogBoxRef}>
+                <p>{`${dialogMessage}`}</p>
             </dialog>
-        </>
+
+            <dialog className='pawnPromotionDialog' ref={pawnPromotionDialog}>
+                {promotionChoices.map((piece, index) => (
+                    <button
+                        key={index}
+                        onClick={() => {
+                            ws.current!.send(JSON.stringify({ type: 'PROMOTE_TO', piece }));
+                            console.log(`Clicked piece: ${piece}`);
+                            pawnPromotionDialog.current!.close();
+                        }}
+                    >
+                        {piece % 10 === 1 ? 'Rook' : piece % 10 === 2 ? 'Knight' : piece % 10 === 3 ? 'Bishop' : 'Queen'}
+                    </button>
+                ))}
+            </dialog>
+        </div>
     )
 }
 

@@ -1,6 +1,7 @@
 import Chess  from '../Chess-Game-Logic/Chess'
 import { Player, Move, PositionNotation } from "../../types"
 import { EventEmitter } from 'events';
+import AppError from '../../Errors/AppError';
 
 export default class Game extends EventEmitter{
     private whitePlayer: Player;
@@ -11,6 +12,7 @@ export default class Game extends EventEmitter{
     private whiteTime: number;
     private blackTime: number;
     private lastMoveTimestamp: number;
+    private winner: Player | null = null;
     
     constructor(player1: Player, player2: Player, duration: number ){
         super();
@@ -105,51 +107,46 @@ export default class Game extends EventEmitter{
     }
 
     pickPiece(player:Player, position: string): string[] {
-        if (player.color === this.chessGame.turn()){ 
-            let index = this.index(position)
-            try {
-                const validMoves = this.chessGame.pick(index)
-                return validMoves.map((element: {y:number, x:number}) => this.indexToNotation(element))
-                
-            } catch (error) {
-                throw new Error((error as Error).message)
-            }
-            
-        } else {
-            throw new Error('Not your turn')
-        }
+        if (player.color !== this.chessGame.turn()) throw new AppError('Not your turn', 400);
+
+        let index = this.index(position);
+        const validMoves = this.chessGame.pick(index);
+        return validMoves.map((element: {y:number, x:number}) => this.indexToNotation(element));
     }
 
     placePiece(position: string):{
-        move:Move,
-        board:number[][]
-        whiteTime: number,
-        blackTime: number,
-        turn: 'white' | 'black'} {
-
-        let index = this.index(position)
-        
-        const {move, turn} = this.chessGame.place(index)
+            move:Move,
+            board:number[][]
+            whiteTime: number,
+            blackTime: number,
+            check: boolean,
+            checkmate: boolean,
+            stalemate: boolean,
+            turn: 'white' | 'black' | false,
+            winner: Player | null,
+            promotionChoices?: null|number[]
+        } { 
 
         const currentTime = Date.now();
         const timeElapsed = currentTime - this.lastMoveTimestamp;
-
+        
         if (this.chessGame.turn() === 'white'){
             this.blackTime -= timeElapsed;
         } else {
             this.whiteTime -= timeElapsed;
         }
 
-        if (this.whiteTime <= 0 || this.blackTime <= 0){
-            this.whiteTime = 0;
-            this.blackTime = 0;
-            this.whitePlayer.turn = false;
-            this.blackPlayer.turn = false;
-        }
+        let index = this.index(position)
         
-        this.whitePlayer.turn = this.chessGame.turn() === 'white';
-        this.blackPlayer.turn = !this.whitePlayer.turn
-        
+        const {
+            move,
+            turn,
+            check,
+            checkmate,
+            stalemate,
+            promotionChoices,
+        } = this.chessGame.place(index);
+
         const moveStringNotation: Move = {
             from: {
                 position: this.indexToNotation(move.from.position),
@@ -158,15 +155,84 @@ export default class Game extends EventEmitter{
             to: {
                 position: this.indexToNotation(move.to.position),
                 piece: move.to.piece
-            }
+            },
+            promoteTo: move.promoteTo
         }
-        this.moves.push(moveStringNotation)
+
+        if (checkmate){
+            this.winner = this.whitePlayer.turn ? this.blackPlayer : this.whitePlayer;
+            this.whitePlayer.turn = false;
+            this.blackPlayer.turn = false;
+        }
+        if (stalemate){
+            this.whitePlayer.turn = false;
+            this.blackPlayer.turn = false;          
+        }
+        
+        this.whitePlayer.turn = this.chessGame.turn() === 'white';
+        this.blackPlayer.turn = !this.whitePlayer.turn;
+        
+        this.moves.push(moveStringNotation);
         return {
             move: moveStringNotation,
             board: this.chessGame.currentBoard(),
             whiteTime: this.whiteTime,
             blackTime: this.blackTime,
             turn,
+            check,
+            checkmate,
+            stalemate,
+            winner:this.winner,
+            promotionChoices
+        }
+    }
+
+    promotPawn(promoteTo: number){
+        const {
+            move,
+            turn,
+            check,
+            checkmate,
+            stalemate,
+        } = this.chessGame.promotPawn(promoteTo);
+
+        const moveStringNotation: Move = {
+            from: {
+                position: this.indexToNotation(move.from.position),
+                piece: move.from.piece
+            },
+            to: {
+                position: this.indexToNotation(move.to.position),
+                piece: move.to.piece
+            },
+            promoteTo: move.promoteTo
+        }
+        if (checkmate){
+            this.winner = this.whitePlayer.turn ? this.blackPlayer : this.whitePlayer;
+            this.whitePlayer.turn = false;
+            this.blackPlayer.turn = false;
+        }
+        if (stalemate){
+            this.whitePlayer.turn = false;
+            this.blackPlayer.turn = false;          
+        }
+
+        this.whitePlayer.turn = this.chessGame.turn() === 'white';
+        this.blackPlayer.turn = !this.whitePlayer.turn
+        
+        this.moves.push(moveStringNotation)
+
+        return {
+            move: moveStringNotation,
+            board: this.chessGame.currentBoard(),
+            whiteTime: this.whiteTime,
+            blackTime: this.blackTime,
+            turn,
+            check,
+            checkmate,
+            stalemate,
+            winner:this.winner,
+            promotionChoices: null
         }
     }
 
