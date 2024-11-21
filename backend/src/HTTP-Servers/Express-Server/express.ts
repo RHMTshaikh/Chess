@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from "express";
 import cookieParser from 'cookie-parser';
 import { HttpResponse, StartHttpServerOptions, RouteConfig } from "../../types";
 import routes from './Routes'
+import { log } from "console";
 
 interface CustomRequest extends Request {
     email: string;
@@ -109,6 +110,8 @@ export function makeExpressMiddleware(middleware: Function) {
 };
 
 app.use((err: any, req: Request, res: Response, next: Function) => {
+    console.log('error message', err.message);
+    console.log('error stack', err.stack);
     res.status(err.statusCode).json({ error: err.message });
 });
 
