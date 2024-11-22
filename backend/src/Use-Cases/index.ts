@@ -6,6 +6,7 @@ import makeLogIn from './login';
 import makeLogOut from './logout'
 import makeAuthorization from './authorization';
 import makeRefreshToken from './refresh-token';
+import makeRetriveSingleUserGame from './retrive-singleUserGame';
 
 const listPublicGames = makeListPublicGames({ DB_Operations })
 const listUsersGames = makeListUsersGames({ DB_Operations })
@@ -14,6 +15,7 @@ const logIn = makeLogIn({ DB_Operations });
 const logOut = makeLogOut({ DB_Operations })
 const authorization = makeAuthorization({ DB_Operations });
 const refreshToken = makeRefreshToken({ DB_Operations });
+const retriveSingleUserGame = makeRetriveSingleUserGame({ DB_Operations });
 
 
 export {
@@ -24,4 +26,5 @@ export {
 	logOut,
 	authorization,
 	refreshToken,
+	retriveSingleUserGame,
 }

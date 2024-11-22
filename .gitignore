@@ -3,6 +3,7 @@ tree_clipboard.txt
 
 .vscode/
 
+backend/db.js
 backend/src/logs.js
 backend/src/test.js
 backend/dist/

@@ -14,7 +14,7 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use('/',(req, res, next) => {
-    console.log(req.method, req.path);
+    console.log(req.method, req.path, req.query, req.params);
     next();
 })
 
@@ -46,7 +46,6 @@ export default function startExpressHttpServer( { port }: StartHttpServerOptions
 
 export function makeExpressCallback (controller: Function) { // here we are separating express from our controller
     return (req: Request, res: Response, next: Function) => {
-        
         const httpRequest = {
             body: req.body,
             query: req.query,
@@ -99,10 +98,9 @@ export function makeExpressMiddleware(middleware: Function) {
 
         middleware(httpRequest)
             .then((data : Record<string, any> ) => {
-                // Perform a deep copy of `data` and add its fields to `req`
                 const deepCopiedData = JSON.parse(JSON.stringify(data));
+                
                 Object.assign(req, deepCopiedData);
-                // Proceed to the next middleware or route handler
                 next();
             })
         .catch((error: any) => next(error));

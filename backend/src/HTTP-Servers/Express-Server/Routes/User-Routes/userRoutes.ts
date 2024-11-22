@@ -6,7 +6,8 @@ import {
     logOutUser,
     renewToken,
     signUpGuest,
-    getUsersGames
+    getUsersGames,
+    getUserGame,
 } from "../../../../Controllers";
 import { authorizUser } from "../../../../Middleware";
 
@@ -24,5 +25,7 @@ router.post("/logout", makeExpressCallback(logOutUser));
 router.get("/renew-token", makeExpressCallback(renewToken));
 
 router.get("/games", makeExpressMiddleware(authorizUser), makeExpressCallback(getUsersGames));
+
+router.get("/game/:game_id", makeExpressMiddleware(authorizUser), makeExpressCallback(getUserGame));
 
 export default router;

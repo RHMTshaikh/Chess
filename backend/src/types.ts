@@ -37,6 +37,10 @@ export interface DB_Operations {
         { limit:number; email:string }
     ) => Promise<any>;
 
+    retriveGameDB: ({ game_id , email }:
+        { game_id:number; email:string }
+    ) => Promise<any>;
+
     addUserDB: ({name,email,password}: {
         name: string,
         email: string,

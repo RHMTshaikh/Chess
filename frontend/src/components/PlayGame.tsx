@@ -13,7 +13,6 @@ function PlayGame() {
 
     return (
         <div className="play-game">
-            <p></p>
             <div className="human">
                 <button className="play"     onClick={() => goToRoom({ color: 'random', opponent: 'HUMAN' })}>Play Against Human</button>
                 <button className="as-white" onClick={() => goToRoom({ color: 'white', opponent: 'HUMAN' })}>Play as White</button>

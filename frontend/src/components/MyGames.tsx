@@ -1,13 +1,16 @@
-import { useEffect, useState  } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../hooks/useAuthContext";
 interface Game {
 	game_id: number;
 	opponent_email: string;
 	winner: string | null;
 }
-function MyGames() {
-	const { user } = useAuthContext()
+
+const MyGames: React.FC = () => {
+	const { user } = useAuthContext();
 	const [gamelist, setGamelist] = useState<Game[]>([])
+	const navigate = useNavigate();
 
 	const fetchGames = async () =>{
 		console.log('fetching my games...');
@@ -42,6 +45,12 @@ function MyGames() {
 	useEffect(() => {
 		fetchGames()
 	}, [])
+
+	const revisiteGame = (game_id: number) => {
+		console.log('revisiting game:', game_id);
+		
+        navigate('/room', { state: { role:'REVISITOR', game_id } });
+	};
 	
 	
 	return (
@@ -55,8 +64,10 @@ function MyGames() {
 						<div className="winner">Winner</div>
 					</li>
 					{gamelist.map((game, index) => (
-						<li key={index} className="game">
-							<div className="number">{`${index+1}.`}</div><div className="email">{game.opponent_email}</div><div className="winner">{game.winner === user?.email ? 'You' : 'Opponent'}</div>
+						<li key={index} className="game" onClick={() => revisiteGame(game.game_id)}>
+							<div className="number">{`${index+1}.`}</div>
+							<div className="email">{game.opponent_email}</div>
+							<div className="winner">{game.winner === user?.email ? 'You' : 'Opponent'}</div>
 						</li>
 					))}
 				</ul>

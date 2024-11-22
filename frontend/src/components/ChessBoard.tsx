@@ -38,40 +38,206 @@ interface PickedPiece {
 
 const ChessBoard: React.FC = () => {
     const [board, setBoard] = useState<number[][]>([]);
-    const location = useLocation();
-    const pieceColor = useRef<string | null>(location.state.color);
-    const opponent = useRef<string>(location.state.opponent);
-    const role = useRef<string>(location.state.role);
-    const game_id = useRef<number>(location.state.game_id);
-    
-    const ws = useRef<WebSocket | null>(null);
 
-    const chessBoardRef = useRef<HTMLDivElement>(null);
-    const pickedPiece  = useRef<PickedPiece | null>(null);
     const [promotionChoices, setPromotionChoices] = useState<number[]>([]);
     const pawnPromotionDialog = useRef<HTMLDialogElement>(null)
+    
+    const [dialogMessage, setDialogMessage] = useState('')
+    const dialogBoxRef = useRef<HTMLDialogElement>(null)
+
+    const location = useLocation();
+    
+    const role = useRef<string>(location.state.role);
+    const pieceColor = useRef<string | null>(location.state.color);
+    const opponent = useRef<string>(location.state.opponent);
+    const game_id = useRef<number>(location.state.game_id);
+    
+    const chessBoardRef = useRef<HTMLDivElement>(null);
+    const pickedPiece  = useRef<PickedPiece | null>(null);
     const count = useRef<number>(1);
     const validMoves = useRef<PositionNotation[]>([]);
     const movesArray = useRef<Move[]>([]);
     const opponentLeft = useRef<boolean>(false);
-    
     const turn = useRef<boolean>(false);
+    
     const flip = useRef(false);
     const vertcleAxisState = useRef([8, 7, 6, 5, 4, 3, 2, 1,]);
     const horizontalAxisState = useRef(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
     
-    const flipBoard = () => {
-        setBoard(board.map(row => row.slice().reverse()).reverse());
-        vertcleAxisState.current = vertcleAxisState.current.reverse();
-        horizontalAxisState.current = horizontalAxisState.current.reverse();
-        flip.current = !flip.current;
-    }    
+    const navigate =  useNavigate()   
     
-    const [dialogMessage, setDialogMessage] = useState('')
-    const dialogBoxRef = useRef<HTMLDialogElement>(null)
-    const navigate =  useNavigate()
-    
+    const ws = useRef<WebSocket | null>(null);
+
     useEffect(() => {
+        if (role.current === 'PLAYER' ) {
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?color=${pieceColor.current}&opponent=${opponent.current}&role=${role.current}`);
+    
+        } else if(role.current === 'SPECTATOR') {
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?role=${role.current}&game_id=${game_id.current}`);
+            
+        } else if(role.current === 'REVISITOR') {
+            
+            fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/game/${game_id.current}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(json => {
+                    movesArray.current = json.game.moves;
+                    count.current = movesArray.current.length+1;
+                    pieceColor.current = json.game.myColor;
+                    if (pieceColor.current === 'black') {
+                        // flipBoard();
+                        flip.current = !flip.current;
+                        vertcleAxisState.current = vertcleAxisState.current.reverse();
+                        horizontalAxisState.current = horizontalAxisState.current.reverse();
+                        json.game.board = (json.game.board as number[][]).map(row => row.slice().reverse()).reverse();        
+                    }
+                    setBoard(json.game.board);
+
+                })
+                .catch(error => {
+                    console.error('Error fetching game data:', error);
+                });
+            
+        }else{
+            throw new Error('Invalid role');
+        }
+        
+        if (ws.current) {
+            ws.current!.onmessage = (event: MessageEvent) => {
+                
+                const json = JSON.parse(event.data);
+                console.log('Message from websocket server:', json);
+        
+                if (json.type === 'ERROR') {
+                    console.log(json.error);
+                    return
+                }
+                if (json.type === 'CONNECTED') {
+                    if (pieceColor.current === 'black') {
+                        // flipBoard();
+                        flip.current = !flip.current;
+                        vertcleAxisState.current = vertcleAxisState.current.reverse();
+                        horizontalAxisState.current = horizontalAxisState.current.reverse();
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
+                    }
+                    setBoard(json.board);
+                    turn.current = json.turn;
+                    return;
+                }
+                if (json.type === 'SPECTATE') {
+                    setBoard(json.board);     
+                    movesArray.current = json.moves;       
+                    return;
+                }
+                if (json.type === 'VALID_MOVES') {
+                    if (validMoves) {
+                        validMoves.current.forEach(position => {
+                            document.getElementById(position)?.classList.remove('valid-move')
+                        })
+                    }
+        
+                    validMoves.current = json.validMoves || [];
+        
+                    validMoves.current.forEach(position => {
+                        document.getElementById(position)?.classList.add('valid-move')
+                    });
+                    return
+                }
+                if (json.type === 'OPPONENT_MOVE') {
+                    if (json.checkmate) {
+                        console.log('Checkmate');  
+                        setDialogMessage('You lost by Checkmate!');
+                        dialogBoxRef.current!.showModal();          
+                    } else if (json.stalemate) {
+                        console.log('Stalemate');
+                        setDialogMessage('Stalemate!')              
+                    }
+                    
+                    if (flip.current) {
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                    }
+                    setBoard(json.board);
+                    
+                    count.current = 1
+                    movesArray.current.push(json.move);
+                    
+                    turn.current = true
+                    return
+                }
+                if (json.type === 'MOVE') { // for spectator
+                    if (flip.current) {
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                    }
+                    if (json.checkmate) {
+                        console.log('Checkmate');  
+                        setDialogMessage(`${json.winner} won by Checkmate!`);
+                        dialogBoxRef.current!.showModal();          
+                    } else if (json.stalemate) {
+                        console.log('Stalemate');
+                        setDialogMessage('Stalemate!')              
+                    }
+                    setBoard(json.board)
+                    movesArray.current.push(json.move)
+                    count.current = 1;
+        
+                    return;
+                }
+        
+                if (json.type === 'CURRENT_STATE') {
+                    if (flip.current) {
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                    }
+                    setBoard(json.board);
+                    count.current = 1;
+        
+                    if (json.move) movesArray.current.push(json.move);
+        
+                    if(json.promotionChoices){
+                        setPromotionChoices(json.promotionChoices);
+                        pawnPromotionDialog.current!.showModal();
+                        return;
+        
+                    } else if (json.checkmate) {
+                        setDialogMessage('You won by Checkmate!');
+                        dialogBoxRef.current!.showModal();
+                        
+                    } else if (json.stalemate) {
+                        setDialogMessage('Stalemate!');
+                        dialogBoxRef.current!.showModal();
+                    }
+                    return;
+                }
+                if (json.type === 'OPPONENT_LEFT') {
+                    opponentLeft.current = true
+                    setDialogMessage(json.message)
+                    dialogBoxRef.current!.showModal()
+                    ws.current?.close();
+                    return
+                }
+                if (json.type === 'PLAYER_LEFT') {
+                    opponentLeft.current = true
+                    setDialogMessage(json.message)
+                    dialogBoxRef.current!.showModal()
+                    ws.current?.close();
+                    return
+                }
+                if (json.type === 'GAME_OVER') {
+                    opponentLeft.current = true
+                    setDialogMessage(json.message)
+                    dialogBoxRef.current!.showModal()
+                    ws.current?.close();
+                    return
+                }
+            }
+        }
 
         const unload = (e: BeforeUnloadEvent) =>{
             e.preventDefault();
@@ -80,16 +246,16 @@ const ChessBoard: React.FC = () => {
             }
         }
         window.addEventListener('beforeunload', unload);
-
+        
         dialogBoxRef.current!.addEventListener("click", e => {
             const dialogDimensions = dialogBoxRef.current!.getBoundingClientRect()
             if (
-              e.clientX < dialogDimensions.left ||
-              e.clientX > dialogDimensions.right ||
-              e.clientY < dialogDimensions.top ||
-              e.clientY > dialogDimensions.bottom
+                e.clientX < dialogDimensions.left ||
+                e.clientX > dialogDimensions.right ||
+                e.clientY < dialogDimensions.top ||
+                e.clientY > dialogDimensions.bottom
             ) {
-              dialogBoxRef.current!.close()
+                dialogBoxRef.current!.close()
             }
         })
         
@@ -98,149 +264,10 @@ const ChessBoard: React.FC = () => {
         }
     },[]);
 
-    if (ws.current === null) {
-        if (role.current === 'PLAYER' ) {
-            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?color=${pieceColor.current}&opponent=${opponent.current}&role=${role.current}`);
-
-        } else if(role.current === 'SPECTATOR') {
-            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?role=${role.current}&game_id=${game_id.current}`);
-            
-        } else {
-            throw new Error('Invalid role');
-        }
-    }
-
-    
-
-    ws.current!.onmessage = (event: MessageEvent) => {
-        
-        const json = JSON.parse(event.data);
-        console.log('Message from websocket server:', json);
-
-        if (json.type === 'ERROR') {
-            console.log(json.error);
-            return
-        }
-        if (json.type === 'CONNECTED') {
-            if (pieceColor.current === 'black') {
-                flip.current = !flip.current;
-                vertcleAxisState.current = vertcleAxisState.current.reverse();
-                horizontalAxisState.current = horizontalAxisState.current.reverse();
-                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
-            }
-            setBoard(json.board);
-            turn.current = json.turn;
-            return;
-        }
-        if (json.type === 'SPECTATE') {
-            setBoard(json.board);     
-            movesArray.current = json.moves;       
-            return;
-        }
-        if (json.type === 'VALID_MOVES') {
-            if (validMoves) {
-                validMoves.current.forEach(position => {
-                    document.getElementById(position)?.classList.remove('valid-move')
-                })
-            }
-
-            validMoves.current = json.validMoves || [];
-
-            validMoves.current.forEach(position => {
-                document.getElementById(position)?.classList.add('valid-move')
-            });
-            return
-        }
-        if (json.type === 'OPPONENT_MOVE') {
-            if (json.checkmate) {
-                console.log('Checkmate');  
-                setDialogMessage('You lost by Checkmate!');
-                dialogBoxRef.current!.showModal();          
-            } else if (json.stalemate) {
-                console.log('Stalemate');
-                setDialogMessage('Stalemate!')              
-            }
-            
-            if (flip.current) {
-                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-            }
-            setBoard(json.board);
-            
-            count.current = 1
-            movesArray.current.push(json.move);
-            
-            turn.current = true
-            return
-        }
-        if (json.type === 'MOVE') { // for spectator
-            if (flip.current) {
-                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-            }
-            if (json.checkmate) {
-                console.log('Checkmate');  
-                setDialogMessage(`${json.winner} won by Checkmate!`);
-                dialogBoxRef.current!.showModal();          
-            } else if (json.stalemate) {
-                console.log('Stalemate');
-                setDialogMessage('Stalemate!')              
-            }
-            setBoard(json.board)
-            movesArray.current.push(json.move)
-            count.current = 1;
-
-            return;
-        }
-
-        if (json.type === 'CURRENT_STATE') {
-            if (flip.current) {
-                json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-            }
-            setBoard(json.board);
-            count.current = 1;
-
-            if (json.move) movesArray.current.push(json.move);
-
-            if(json.promotionChoices){
-                setPromotionChoices(json.promotionChoices);
-                pawnPromotionDialog.current!.showModal();
-                return;
-
-            } else if (json.checkmate) {
-                setDialogMessage('You won by Checkmate!');
-                dialogBoxRef.current!.showModal();
-                
-            } else if (json.stalemate) {
-                setDialogMessage('Stalemate!');
-                dialogBoxRef.current!.showModal();
-            }
-            return;
-        }
-        if (json.type === 'OPPONENT_LEFT') {
-            opponentLeft.current = true
-            setDialogMessage(json.message)
-            dialogBoxRef.current!.showModal()
-            ws.current?.close();
-            return
-        }
-        if (json.type === 'PLAYER_LEFT') {
-            opponentLeft.current = true
-            setDialogMessage(json.message)
-            dialogBoxRef.current!.showModal()
-            ws.current?.close();
-            return
-        }
-        if (json.type === 'GAME_OVER') {
-            opponentLeft.current = true
-            setDialogMessage(json.message)
-            dialogBoxRef.current!.showModal()
-            ws.current?.close();
-            return
-        }
-    }
 
     const index = (position: PositionNotation):{
-        y: number, //row
-        x: number, //column
+            y: number, //row
+            x: number, //column
         } => { // position: a3
         let x = horizontalAxisState.current.indexOf(position.charAt(0));
         let y = vertcleAxisState.current.indexOf(parseInt(position.charAt(1)))
@@ -249,6 +276,12 @@ const ChessBoard: React.FC = () => {
     const indexToNotation = (position: Position): PositionNotation => {
         return `${horizontalAxisState.current[position.x]}${vertcleAxisState.current[position.y]}` as PositionNotation;
     }
+    const flipBoard = () => {
+        setBoard(board.map(row => row.slice().reverse()).reverse());
+        vertcleAxisState.current = vertcleAxisState.current.reverse();
+        horizontalAxisState.current = horizontalAxisState.current.reverse();
+        flip.current = !flip.current;
+    } 
 
     const cellPosition = (element: HTMLDivElement): PositionNotation   => {
         const chessboard = chessBoardRef.current;
@@ -410,21 +443,13 @@ const ChessBoard: React.FC = () => {
             setBoard(newBoard);
         }
     }
-// console.log(movesArray.current);
 
     const redo = () => {
-        if (validMoves) {
-            validMoves.current.forEach(position => {
-                document.getElementById(position)?.classList.remove('valid-move')
-            })
-        }
-        validMoves.current = []
+        removeValidMoves();
 
         if (count.current > 1) {
             count.current--;
             const move = movesArray.current[movesArray.current.length - count.current];
-            console.log(move);            
-            console.log(move.promoteTo);            
 
             const newBoard = board.map(row => row.slice());
 
@@ -440,12 +465,14 @@ const ChessBoard: React.FC = () => {
 
     }
     const currentStateFromServer = () => {
-        ws.current!.send(JSON.stringify({
-            type: 'CURRENT_STATE',
-        }))        
+        if (ws.current) {
+            ws.current.send(JSON.stringify({
+                type: 'CURRENT_STATE'
+            }));            
+        }       
     }
     const quitGame = () =>{
-        if (!opponentLeft.current) {
+        if (!opponentLeft.current && ws.current) {
             ws.current!.send(JSON.stringify({
                 type: 'QUIT_GAME',
             }));
@@ -454,7 +481,7 @@ const ChessBoard: React.FC = () => {
         navigate('/dashboard');
     }
     const exitGame = () =>{
-        if (!opponentLeft.current) {
+        if (!opponentLeft.current && ws.current) {
             ws.current!.send(JSON.stringify({
                 type: 'STOP_SPECTATING',
             }))
@@ -462,10 +489,35 @@ const ChessBoard: React.FC = () => {
         }
         navigate('/dashboard')
     }
+    const setBoardToThisMove = (moveNnumber: number) => {
+        const countDestination = movesArray.current.length-moveNnumber;
+        const newBoard = board.map(row => row.slice());
+
+        while (countDestination < count.current) {
+            count.current--;
+            const move = movesArray.current[movesArray.current.length - count.current];
+
+            let { y, x } = index(move.to.position);
+            newBoard[y][x] = move.promoteTo || move.from.piece;
+            ({ y, x } = index(move.from.position));
+            newBoard[y][x] = 9;
+        }
+        while (countDestination > count.current) {
+            const move = movesArray.current[movesArray.current.length - count.current];
+            count.current++;
+
+            let { y, x } = index(move.to.position);
+            newBoard[y][x] = move.to.piece;
+            ({ y, x } = index(move.from.position));
+            newBoard[y][x] = move.from.piece;
+        }
+        setBoard(newBoard);
+    }
 
     return (
         <div className='room'>
             <div className='chessboard'>
+                <div className="opponent">opponent</div>
                 <div className='verticle'>
                     {vertcleAxisState.current.map((x, index) => (
                         <div key={index}>{x}</div>
@@ -484,6 +536,7 @@ const ChessBoard: React.FC = () => {
                         <div key={index}>{x}</div>
                     ))}
                 </div>
+                <div className="player">player</div>
             </div>
 
             <div className="ingame-buttons">
@@ -492,7 +545,7 @@ const ChessBoard: React.FC = () => {
                 <button className="quit" onClick={ role.current==='PLAYER' ? quitGame : exitGame }>{ role.current==='PLAYER' ? 'Quit' : 'Exit' }</button>
             </div>
 
-            <MovesPanel movesArray={movesArray} undo={undo} redo={redo} currentStateFromServer={currentStateFromServer} indexToNotation={indexToNotation} />
+            <MovesPanel {...{movesArray, undo, redo, currentStateFromServer, indexToNotation, setBoardToThisMove}} />
 
             <dialog className='dialog-room' ref={dialogBoxRef}>
                 <p>{`${dialogMessage}`}</p>

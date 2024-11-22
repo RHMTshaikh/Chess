@@ -30,6 +30,7 @@ async function makeNewClient(): Promise<PoolClient> {
 const DB_Operations:DB_Operations = Object.freeze({
     publicGamesDB,
     myGamesDB,
+    retriveGameDB,
     endGameDB,
     addNewGameDB,
     saveMoveDB,
@@ -131,6 +132,51 @@ async function myGamesDB({ limit, email }:{
         });
 
         return opponents;
+
+    } catch (error) {
+        throw new AppError('Failed to get my games', 500);
+    } finally {
+        client.release();
+    }
+}
+
+async function retriveGameDB({ game_id, email}:{
+    game_id: number,
+    email: string,
+    }): Promise<any> {
+
+    const client = await makeNewClient();
+    const query = `SELECT * FROM games WHERE game_id = $1`;
+    const values = [game_id];
+    console.log('retriveGameDB value:', values);
+    
+    try {
+        const results = await client.query(query, values);
+        console.log('retriveGameDB results:', results.rows);
+        if (results.rows.length === 0) {
+            throw new AppError('Game not found', 404);
+        }
+        const { white_player, black_player, winner, moves } = results.rows[0];
+        const board = [
+            [ 1,  2,  3,  4,  5,  3,  2,  1],
+            [ 0,  0,  0,  0,  0,  0,  0,  0],
+            [ 9,  9,  9,  9,  9,  9,  9,  9], // 9 means empty
+            [ 9,  9,  9,  9,  9,  9,  9,  9],
+            [ 9,  9,  9,  9,  9,  9,  9,  9],
+            [ 9,  9,  9,  9,  9,  9,  9,  9],
+            [10, 10, 10, 10, 10, 10, 10, 10],
+            [11, 12, 13, 14, 15, 13, 12, 11],
+        ]
+        return {
+            board,
+            game_id,
+            opponent_email: white_player === email ? black_player : white_player,
+            myColor: white_player === email ? 'white' : 'black',
+            winnerEmail: winner,
+            winnerColor: winner === white_player ? 'white' : 'black',
+            moves: JSON.parse(moves),
+        };
+
 
     } catch (error) {
         throw new AppError('Failed to get my games', 500);

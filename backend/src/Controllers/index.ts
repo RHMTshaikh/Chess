@@ -4,7 +4,8 @@ import {
     signUp,
     logIn,
     logOut,
-    refreshToken
+    refreshToken,
+    retriveSingleUserGame,
 } from '../Use-Cases'
 
 import makeGetPublicGames from './get-publicGames'
@@ -14,11 +15,14 @@ import makeLoginUser from './post-login'
 import makeLogOutUser from './post-logout'
 import makeRenewToken from './post-refreshToken'
 import makeSignUpGuest from './post-guestSignUp'
+import makeGetUserGame from './get-userGame'
 
 
 const getPublicGames = makeGetPublicGames({ listPublicGames })
 
 const getUsersGames = makeGetUsersGames({ listUsersGames });
+
+const getUserGame = makeGetUserGame({ retriveSingleUserGame });
 
 const signUpUser = makeSignUpUser({ signUp });
 
@@ -34,6 +38,7 @@ const signUpGuest = makeSignUpGuest({ signUp });
 export {
     getPublicGames,
     getUsersGames,
+    getUserGame,
     signUpUser,
     loginUser,
     logOutUser,
