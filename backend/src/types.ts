@@ -96,11 +96,15 @@ export interface Opponent  {
     winner: string;
 };
 export interface Player extends WebSocket {
+    name: string;
+    rank: number;
+	turn: boolean ;
+    type: 'HUMAN' | 'BOT' ;
+    time: number;
     email: string ;
 	game_id: string ;
 	opponent: Player ;
     opponentType: 'HUMAN' | 'BOT' ;
-	turn: boolean ;
     color: 'white' | 'black' ;
     role: 'PLAYER' | 'SPECTATOR' ;
 }

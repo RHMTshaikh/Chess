@@ -20,3 +20,11 @@ export interface Move {
     to: Cell,
     promoteTo: number | null,
 };
+export interface ChessPlayer {
+    name: string;
+    rank: number;
+    turn: boolean ;
+    time:number;
+    color: 'white' | 'black' ;
+    type: 'HUMAN' | 'BOT' ;
+};

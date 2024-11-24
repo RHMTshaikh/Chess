@@ -5,7 +5,7 @@ import { useAuthContext } from '../hooks/useAuthContext';
 export default function Navbar() {
     const { user, dispatch } = useAuthContext();
     const [name, setName] = useState<string>('');
-    const [rank, setRank] = useState<string>('');
+    const [rank, setRank] = useState<number>();
 
     useEffect(() => {
         if (user) {
@@ -13,7 +13,7 @@ export default function Navbar() {
             setRank(user.rank);
         }else{
             setName('');
-            setRank('');
+            setRank(undefined);
 		}
     }, [user]);
 

@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Move, Position, PositionNotation } from '../types';
+import { Move, Position, PositionNotation, ChessPlayer } from '../types';
 import MovesPanel from './MovesPanel';
+import { useAuthContext } from '../hooks/useAuthContext';
+import Timer from './Timer';
 
 function boardFromArray(board:number[][], vertcleAxis: number[], horizontalAxis:string[], heightChessBoard:number, widthChessBoard: number) : React.ReactNode[]{
     const tiles: React.ReactNode[] = [];
@@ -35,21 +37,28 @@ interface PickedPiece {
     element: HTMLDivElement,
     position: PositionNotation
 }
+interface Opponent {
+    name: string,
+    rank: number,
+    type: string
+}
 
 const ChessBoard: React.FC = () => {
+    const { user } = useAuthContext();
+    
     const [board, setBoard] = useState<number[][]>([]);
 
+    
     const [promotionChoices, setPromotionChoices] = useState<number[]>([]);
     const pawnPromotionDialog = useRef<HTMLDialogElement>(null)
     
     const [dialogMessage, setDialogMessage] = useState('')
     const dialogBoxRef = useRef<HTMLDialogElement>(null)
-
+    
     const location = useLocation();
     
-    const role = useRef<string>(location.state.role);
-    const pieceColor = useRef<string | null>(location.state.color);
-    const opponent = useRef<string>(location.state.opponent);
+    const role = useRef<'PLAYER' | 'SPECTATOR' | 'REVISITOR' >(location.state.role);
+    const pieceColor = useRef<'black' | 'white' | null>(location.state.color);
     const game_id = useRef<number>(location.state.game_id);
     
     const chessBoardRef = useRef<HTMLDivElement>(null);
@@ -59,7 +68,8 @@ const ChessBoard: React.FC = () => {
     const movesArray = useRef<Move[]>([]);
     const opponentLeft = useRef<boolean>(false);
     const turn = useRef<boolean>(false);
-    
+
+    const players = useRef<[ChessPlayer | null, ChessPlayer | null]>([null, null]);
     const flip = useRef(false);
     const vertcleAxisState = useRef([8, 7, 6, 5, 4, 3, 2, 1,]);
     const horizontalAxisState = useRef(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
@@ -70,10 +80,10 @@ const ChessBoard: React.FC = () => {
 
     useEffect(() => {
         if (role.current === 'PLAYER' ) {
-            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?color=${pieceColor.current}&opponent=${opponent.current}&role=${role.current}`);
-    
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?color=${pieceColor.current}&opponent=${location.state.opponent}&role=${role.current}&name=${user!.name}&rank=${user!.rank}`);
+            
         } else if(role.current === 'SPECTATOR') {
-            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?role=${role.current}&game_id=${game_id.current}`);
+            ws.current = new WebSocket(`${process.env.REACT_APP_WEBSOCKET_URL}?role=${role.current}&game_id=${game_id.current}&name=${user!.name}&rank=${user!.rank}`);
             
         } else if(role.current === 'REVISITOR') {
             
@@ -82,7 +92,7 @@ const ChessBoard: React.FC = () => {
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
             })
-                .then(response => {
+            .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! Status: ${response.status}`);
                     }
@@ -93,151 +103,226 @@ const ChessBoard: React.FC = () => {
                     count.current = movesArray.current.length+1;
                     pieceColor.current = json.game.myColor;
                     if (pieceColor.current === 'black') {
-                        // flipBoard();
                         flip.current = !flip.current;
                         vertcleAxisState.current = vertcleAxisState.current.reverse();
                         horizontalAxisState.current = horizontalAxisState.current.reverse();
                         json.game.board = (json.game.board as number[][]).map(row => row.slice().reverse()).reverse();        
                     }
                     setBoard(json.game.board);
-
+                    
                 })
                 .catch(error => {
                     console.error('Error fetching game data:', error);
                 });
-            
+                
         }else{
             throw new Error('Invalid role');
         }
-        
-        if (ws.current) {
-            ws.current!.onmessage = (event: MessageEvent) => {
-                
-                const json = JSON.parse(event.data);
-                console.log('Message from websocket server:', json);
-        
-                if (json.type === 'ERROR') {
-                    console.log(json.error);
-                    return
-                }
-                if (json.type === 'CONNECTED') {
-                    if (pieceColor.current === 'black') {
-                        // flipBoard();
-                        flip.current = !flip.current;
-                        vertcleAxisState.current = vertcleAxisState.current.reverse();
-                        horizontalAxisState.current = horizontalAxisState.current.reverse();
-                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
-                    }
-                    setBoard(json.board);
-                    turn.current = json.turn;
-                    return;
-                }
-                if (json.type === 'SPECTATE') {
-                    setBoard(json.board);     
-                    movesArray.current = json.moves;       
-                    return;
-                }
-                if (json.type === 'VALID_MOVES') {
-                    if (validMoves) {
-                        validMoves.current.forEach(position => {
-                            document.getElementById(position)?.classList.remove('valid-move')
-                        })
-                    }
-        
-                    validMoves.current = json.validMoves || [];
-        
-                    validMoves.current.forEach(position => {
-                        document.getElementById(position)?.classList.add('valid-move')
-                    });
-                    return
-                }
-                if (json.type === 'OPPONENT_MOVE') {
-                    if (json.checkmate) {
-                        console.log('Checkmate');  
-                        setDialogMessage('You lost by Checkmate!');
-                        dialogBoxRef.current!.showModal();          
-                    } else if (json.stalemate) {
-                        console.log('Stalemate');
-                        setDialogMessage('Stalemate!')              
-                    }
+            
+            if (ws.current) {
+                ws.current.onmessage = (event: MessageEvent) => {
+                    const json = JSON.parse(event.data);
+                    console.log('Message from websocket server:', json);
                     
-                    if (flip.current) {
-                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                    if (json.type === 'ERROR') {
+                        console.log(json.error);
+                        return
                     }
-                    setBoard(json.board);
-                    
-                    count.current = 1
-                    movesArray.current.push(json.move);
-                    
-                    turn.current = true
-                    return
-                }
-                if (json.type === 'MOVE') { // for spectator
-                    if (flip.current) {
-                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-                    }
-                    if (json.checkmate) {
-                        console.log('Checkmate');  
-                        setDialogMessage(`${json.winner} won by Checkmate!`);
-                        dialogBoxRef.current!.showModal();          
-                    } else if (json.stalemate) {
-                        console.log('Stalemate');
-                        setDialogMessage('Stalemate!')              
-                    }
-                    setBoard(json.board)
-                    movesArray.current.push(json.move)
-                    count.current = 1;
-        
-                    return;
-                }
-        
-                if (json.type === 'CURRENT_STATE') {
-                    if (flip.current) {
-                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-                    }
-                    setBoard(json.board);
-                    count.current = 1;
-        
-                    if (json.move) movesArray.current.push(json.move);
-        
-                    if(json.promotionChoices){
-                        setPromotionChoices(json.promotionChoices);
-                        pawnPromotionDialog.current!.showModal();
-                        return;
-        
-                    } else if (json.checkmate) {
-                        setDialogMessage('You won by Checkmate!');
-                        dialogBoxRef.current!.showModal();
+                    if (json.type === 'CONNECTED') {
+                        if (pieceColor.current === 'black') {
+                            flip.current = !flip.current;
+                            vertcleAxisState.current = vertcleAxisState.current.reverse();
+                            horizontalAxisState.current = horizontalAxisState.current.reverse();
+                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
+                        }
                         
-                    } else if (json.stalemate) {
-                        setDialogMessage('Stalemate!');
-                        dialogBoxRef.current!.showModal();
+                        turn.current = json.turn === pieceColor.current;
+
+                        players.current = [
+                            {
+                                name: user!.name,
+                                rank: user!.rank,
+                                turn: json.turn === pieceColor.current,
+                                time:  pieceColor.current === 'white' ? json.whiteTime : json.blackTime,
+                                color: pieceColor.current!,
+                                type: 'HUMAN'
+                            } ,
+                            {
+                                name: json.opponentName,
+                                rank: json.opponentRank,
+                                turn: json.turn !== pieceColor.current,
+                                time:  pieceColor.current !== 'white' ? json.whiteTime : json.blackTime,
+                                color: pieceColor.current === 'white' ? 'black' : 'white',
+                                type: 'HUMAN',
+                            }
+                        ];
+                        setBoard(json.board);
+                        return;
                     }
-                    return;
-                }
-                if (json.type === 'OPPONENT_LEFT') {
-                    opponentLeft.current = true
-                    setDialogMessage(json.message)
-                    dialogBoxRef.current!.showModal()
-                    ws.current?.close();
-                    return
-                }
-                if (json.type === 'PLAYER_LEFT') {
-                    opponentLeft.current = true
-                    setDialogMessage(json.message)
-                    dialogBoxRef.current!.showModal()
-                    ws.current?.close();
-                    return
-                }
-                if (json.type === 'GAME_OVER') {
-                    opponentLeft.current = true
-                    setDialogMessage(json.message)
-                    dialogBoxRef.current!.showModal()
-                    ws.current?.close();
-                    return
+                    if (json.type === 'SPECTATE') {
+                        setBoard(json.board);     
+                        movesArray.current = json.moves;  
+                        players.current = [
+                            {
+                                name: json.whitePlayer.name,
+                                rank: json.whitePlayer.rank,
+                                turn: json.turn === 'white',
+                                time: json.whitePlayer.time,
+                                color: 'white',
+                                type:  json.whitePlayer.type
+                            } ,
+                            {
+                                name: json.blackPlayer.name,
+                                rank: json.blackPlayer.rank,
+                                turn: json.turn === 'black',
+                                time: json.blackPlayer.time,
+                                color: 'black',
+                                type:  json.blackPlayer.type
+                            }
+                        ];
+                        return;
+                    }
+                    if (json.type === 'VALID_MOVES') {
+                        if (validMoves) {
+                            validMoves.current.forEach(position => {
+                                document.getElementById(position)?.classList.remove('valid-move')
+                            })
+                        }
+            
+                        validMoves.current = json.validMoves || [];
+            
+                        validMoves.current.forEach(position => {
+                            document.getElementById(position)?.classList.add('valid-move')
+                        });
+                        return
+                    }
+                    if (json.type === 'OPPONENT_MOVE') {
+                        if (json.checkmate) {
+                            console.log('Checkmate');  
+                            setDialogMessage('You lost by Checkmate!');
+                            dialogBoxRef.current!.showModal();          
+                        } else if (json.stalemate) {
+                            console.log('Stalemate');
+                            setDialogMessage('Stalemate!')              
+                        }
+
+                        players.current = [
+                            {
+                                ...players.current[0]!,
+                                time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                                turn: json.turn === players.current[0]?.color,
+                            } ,
+                            {
+                                ...players.current[1]!,
+                                time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
+                                turn: json.turn === players.current[1]?.color,
+                            }
+                        ];
+                        
+                        
+                        if (flip.current) {
+                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                        }
+                        setBoard(json.board);
+                        
+                        count.current = 1
+                        movesArray.current.push(json.move);
+                        
+                        turn.current = json.turn === pieceColor.current;
+                        return
+                    }
+                    if (json.type === 'MOVE') { // for spectator
+                        if (flip.current) {
+                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                        }
+                        if (json.checkmate) {
+                            console.log('Checkmate');  
+                            setDialogMessage(`${json.winner} won by Checkmate!`);
+                            dialogBoxRef.current!.showModal();          
+                        } else if (json.stalemate) {
+                            console.log('Stalemate');
+                            setDialogMessage('Stalemate!')              
+                        }
+
+                        players.current = [
+                            {
+                                ...players.current[0]!,
+                                time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                                turn: json.turn === players.current[0]?.color
+                            } ,
+                            {
+                                ...players.current[1]!,
+                                time:  players.current[1]?.color === 'black' ? json.blackTime : json.whiteTime,
+                                turn: json.turn === players.current[1]?.color
+                            }
+                        ];
+                        
+                        setBoard(json.board)
+                        movesArray.current.push(json.move)
+                        count.current = 1;
+                        return;
+                    }
+                    if (json.type === 'CURRENT_STATE') {
+                        if (flip.current) {
+                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                        }
+                        setBoard(json.board);
+                        count.current = 1;
+            
+                        if (json.move) movesArray.current.push(json.move);
+            
+                        if(json.promotionChoices){
+                            setPromotionChoices(json.promotionChoices);
+                            pawnPromotionDialog.current!.showModal();
+                            return;
+            
+                        } else if (json.checkmate) {
+                            setDialogMessage('You won by Checkmate!');
+                            dialogBoxRef.current!.showModal();
+                            
+                        } else if (json.stalemate) {
+                            setDialogMessage('Stalemate!');
+                            dialogBoxRef.current!.showModal();
+                        }
+
+                        players.current = [
+                            {
+                                ...players.current[0]!,
+                                time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                                turn: json.turn === players.current[0]?.color
+                            } ,
+                            {
+                                ...players.current[1]!,
+                                time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
+                                turn: json.turn === players.current[1]?.color
+                            }
+                        ];
+                        
+                        return;
+                    }
+                    if (json.type === 'OPPONENT_LEFT') {
+                        opponentLeft.current = true
+                        setDialogMessage(json.message)
+                        dialogBoxRef.current!.showModal()
+                        ws.current?.close();
+                        return
+                    }
+                    if (json.type === 'PLAYER_LEFT') {
+                        opponentLeft.current = true
+                        setDialogMessage(json.message)
+                        dialogBoxRef.current!.showModal()
+                        ws.current?.close();
+                        return
+                    }
+                    if (json.type === 'GAME_OVER') {
+                        opponentLeft.current = true
+                        setDialogMessage(json.message)
+                        dialogBoxRef.current!.showModal()
+                        ws.current?.close();
+                        return
+                    }
                 }
             }
-        }
 
         const unload = (e: BeforeUnloadEvent) =>{
             e.preventDefault();
@@ -277,10 +362,11 @@ const ChessBoard: React.FC = () => {
         return `${horizontalAxisState.current[position.x]}${vertcleAxisState.current[position.y]}` as PositionNotation;
     }
     const flipBoard = () => {
-        setBoard(board.map(row => row.slice().reverse()).reverse());
         vertcleAxisState.current = vertcleAxisState.current.reverse();
         horizontalAxisState.current = horizontalAxisState.current.reverse();
+        players.current = [players.current[1], players.current[0]];
         flip.current = !flip.current;
+        setBoard(board.map(row => row.slice().reverse()).reverse());
     } 
 
     const cellPosition = (element: HTMLDivElement): PositionNotation   => {
@@ -333,7 +419,6 @@ const ChessBoard: React.FC = () => {
                         type: 'PICK',
                         position: pickedPiece.current.position
                     }))
-                    console.log('sent pick');
                     
                 }
             }else console.log('turn: ', turn.current);
@@ -517,26 +602,50 @@ const ChessBoard: React.FC = () => {
     return (
         <div className='room'>
             <div className='chessboard'>
-                <div className="opponent">opponent</div>
+                <div className="opponent">
+                    { players.current[1] &&
+                        <>
+                        {/* <div className="pic">pic</div> */}
+                        <div className="name">{players.current[1]!.name}</div>
+                        {/* <div className="rank">{players.current[1]!.rank}</div> */}
+                        {/* <div className="time">{players.current[1]!.time}</div> */}
+                        <Timer  {...{player: players.current[1]}} />
+                        </>
+                    }
+                </div>
+
                 <div className='verticle'>
                     {vertcleAxisState.current.map((x, index) => (
                         <div key={index}>{x}</div>
                     ))}
                 </div>
-                <div
-                    className='grid'
+
+                <div className='grid'
                     ref={chessBoardRef}
                     onMouseDown={grabPiece}
                     onMouseMove={movePiece}
-                >
+                    >
                     {boardFromArray(board, vertcleAxisState.current, horizontalAxisState.current, chessBoardRef.current?.offsetHeight!, chessBoardRef.current?.offsetWidth!)}
                 </div>
+
                 <div className='horizontal'>
                     {horizontalAxisState.current.map((x, index) => (
                         <div key={index}>{x}</div>
                     ))}
                 </div>
-                <div className="player">player</div>
+
+                <div className="player">
+                    { players.current[0] &&
+                        <>
+                        {/* <div className="pic">pic</div> */}
+                        <div className="name">{players.current[0].name}</div>
+                        {/* <div className="rank">{players.current[0].rank}</div> */}
+                        {/* <div className="time">{players.current[0].time}</div> */}
+                        {/* <Timer  player={players.current[0]} /> */}
+                        <Timer  {...{player: players.current[0]}} />
+                        </>
+                    }
+                </div>
             </div>
 
             <div className="ingame-buttons">
@@ -557,7 +666,6 @@ const ChessBoard: React.FC = () => {
                         key={index}
                         onClick={() => {
                             ws.current!.send(JSON.stringify({ type: 'PROMOTE_TO', piece }));
-                            console.log(`Clicked piece: ${piece}`);
                             pawnPromotionDialog.current!.close();
                         }}
                     >

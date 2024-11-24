@@ -59,9 +59,8 @@ export default class GameManager extends EventEmitter {
 
             const game = new Game(waitingPlayer, player, duration);
 
-            game.on('durationExpired', (winner : Player) => {
-                console.log('duration expired in game manager');
-                
+            game.on('durationExpired', async (winner : Player) => {
+                await this.DB_Operations.endGameDB({game_id:winner.game_id, winner_email:winner.email});
                 this.emit('durationExpired', winner);
             });
 
@@ -72,7 +71,7 @@ export default class GameManager extends EventEmitter {
                 game_id,
                 turn: game.turn(),
                 opponent: waitingPlayer as Player,
-                board: game.currentState(),
+                board: game.currentState().board,
                 whiteTime: game.getWhiteTime(),
                 blackTime: game.getBlackTime(),
             }
@@ -236,8 +235,13 @@ export default class GameManager extends EventEmitter {
         if (!this.games.has(player.game_id)) throw new AppError('game not found', 404);
      
         const game = this.games.get(player.game_id)
-        const board = game?.currentState()
-        return board
+        const result = game?.currentState()
+        return {
+            board: result?.board,
+            turn: game?.turn(),
+            whiteTime: result?.whiteTime,
+            blackTime: result?.blackTime,
+        }
     }
 
     returnGame = (game_id: string) =>{
@@ -251,9 +255,7 @@ export default class GameManager extends EventEmitter {
         moves: Move[],
         players: Player[],
         spectatorCount: number,
-        } | {
-        type: 'ERROR',
-        error: string,
+        turn: 'white' | 'black' | false,
         } => {
         
         if (!this.games.has(spectator.game_id)) throw new AppError('game not found', 404);
@@ -265,8 +267,9 @@ export default class GameManager extends EventEmitter {
 
         return {
             type: 'SPECTATING',
-            board: game!.currentState(),
+            board: game!.currentState().board,
             moves: game!.getMoves(),
+            turn: game!.turn(),
             players,
             spectatorCount,
         }

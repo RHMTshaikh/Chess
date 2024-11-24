@@ -2,8 +2,8 @@ import { createContext, useReducer, useEffect, ReactNode, Dispatch } from "react
 
 interface User {
     email: string;
-    name: string
-    rank: string
+    name: string;
+    rank: number;
 }
 interface AuthState {
     user: User | null;
