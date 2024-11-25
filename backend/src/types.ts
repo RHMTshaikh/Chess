@@ -27,55 +27,64 @@ export interface User {
     email: string;
     rank: number;
 }
+
+
+export type PublicGamesDB = 
+({ limit }: { limit: number }) 
+=> Promise<any>;
+
+export type MyGamesDB = 
+({ limit, email }: { limit: number; email: string }) 
+=> Promise<any>;
+
+export type RetrieveGameDB = 
+({ game_id, email }: { game_id: number; email: string }) 
+=> Promise<any>;
+
+export type AddUserDB = 
+({ name, email, password }: { name: string; email: string; password: string }) 
+=> Promise<User | null>;
+
+export type FindUserByEmailDB = 
+({ email }: { email: string }) 
+=> Promise<(User & { password: string; refresh_token: string }) | null>;
+
+export type SaveRefreshTokenDB = 
+({ email, refreshToken }: { email: string; refreshToken: string }) 
+=> Promise<any>;
+
+export type RemoveRefreshTokenDB = 
+({ email }: { email: string }) 
+=> Promise<any>;
+
+export type EndGameDB = 
+({ game_id, winner_email }: { game_id: string; winner_email: string }) 
+=> Promise<any>;
+
+export type AddNewGameDB = 
+({ white_player_email, black_player_email }: { white_player_email: string; black_player_email: string }) 
+=> Promise<string>;
+
+export type SaveMoveDB = 
+({ game_id, move }: { game_id: string; move: Move }) 
+=> Promise<any>;
+// Define the DB_Operations interface
 export interface DB_Operations {
+    publicGamesDB: PublicGamesDB;
+    myGamesDB: MyGamesDB;
+    retriveGameDB: RetrieveGameDB;
+    addUserDB: AddUserDB;
+    findUserByEmailDB: FindUserByEmailDB;
+    saveRefreshTokenDB: SaveRefreshTokenDB;
+    removeRefreshTokenDB: RemoveRefreshTokenDB;
+    endGameDB: EndGameDB;
+    addNewGameDB: AddNewGameDB;
+    saveMoveDB: SaveMoveDB;
+}
 
-    publicGamesDB: ({ limit }:
-        { limit:number }
-    ) => Promise<any>;
-
-    myGamesDB: ({ limit, email}:
-        { limit:number; email:string }
-    ) => Promise<any>;
-
-    retriveGameDB: ({ game_id , email }:
-        { game_id:number; email:string }
-    ) => Promise<any>;
-
-    addUserDB: ({name,email,password}: {
-        name: string,
-        email: string,
-        password: string
-    }) => Promise<User | null>;
-
-
-    findUserByEmailDB: ({ email }:
-        { email: string }
-    ) => Promise<
-        ( User & { password:string, refresh_token:string } ) | null
-    >;
-
-    saveRefreshTokenDB: ({ email, refreshToken }:
-        { email:string, refreshToken: string }
-    ) => Promise<any>;
-
-    removeRefreshTokenDB: ({ email }:
-        { email:string }
-    ) => Promise<any>;
-
-    // countOfRowsInGameTableDB: () => Promise<number | null>;
-
-    endGameDB: ({game_id, winner_email}:
-        {game_id: string, winner_email: string}
-    ) => Promise<any>;
-
-    addNewGameDB: ({ white_player_email, black_player_email}:
-        { white_player_email:string, black_player_email:string}
-    )=> Promise<string>;
-
-    saveMoveDB({game_id, move}:{
-        game_id: string,
-        move: Move, 
-    }): Promise<any>;
+export interface DBQueueElement {
+    operation: Function;
+    parameters: any[];
 }
 export interface PublicGames {
     game_id: number;

@@ -2,18 +2,20 @@ import { DB_Operations, Move, Player } from '../../types';
 import Game from '../Game/Game';
 import AppError from '../../Errors/AppError';
 import { EventEmitter } from 'events';
-// import { WebSocket } from 'ws';
+import { queueToDB } from '../../DBMS';
 
 export default class GameManager extends EventEmitter {
     private games = new Map<string, Game>();
     private pendingUser: { white: Player[] , black: Player[] } = { white: [], black: [] };
     private DB_Operations: DB_Operations;
+    private queueToDB: any;
 
     private static instance: GameManager | null = null;
 
     private constructor({DB_Operations}: {DB_Operations: DB_Operations }) {
         super();
         this.DB_Operations = DB_Operations;
+        this.queueToDB = queueToDB;
     }
 
     public static getInstance({DB_Operations}: {DB_Operations: DB_Operations }): GameManager {
@@ -52,6 +54,10 @@ export default class GameManager extends EventEmitter {
             const white_player_email = player.color === 'white' ? player.email : waitingPlayer.email;
             const black_player_email = player.color === 'black' ? player.email : waitingPlayer.email;
             
+            // queueToDB.push({
+            //     operation: this.DB_Operations.addNewGameDB, 
+            //     parameters: [{ white_player_email, black_player_email}]
+            // });
             const game_id = await this.DB_Operations.addNewGameDB({ white_player_email, black_player_email});
             
             player.game_id = game_id;
@@ -60,7 +66,11 @@ export default class GameManager extends EventEmitter {
             const game = new Game(waitingPlayer, player, duration);
 
             game.on('durationExpired', async (winner : Player) => {
-                await this.DB_Operations.endGameDB({game_id:winner.game_id, winner_email:winner.email});
+                queueToDB.push({
+                    operation: this.DB_Operations.endGameDB, 
+                    parameters: [{game_id:winner.game_id, winner_email:winner.email}]
+                });
+                // await this.DB_Operations.endGameDB({game_id:winner.game_id, winner_email:winner.email});
                 this.emit('durationExpired', winner);
             });
 
@@ -100,12 +110,16 @@ export default class GameManager extends EventEmitter {
 
         if (!this.games.has(player.game_id)) throw new AppError('game not found', 404);
 
-        const game = this.games.get(player.game_id)
+        const game = this.games.get(player.game_id)!;
         const opponent = player.opponent;
-        const spectators = game!.getSpectators();
+        const spectators = game.getSpectators();
+        game.cleanup();
 
-        await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:player.opponent.email});
-
+        queueToDB.push({
+            operation: this.DB_Operations.endGameDB, 
+            parameters: [{game_id:player.game_id, winner_email:player.opponent.email}]
+        });
+        // await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:player.opponent.email});
         this.games.delete(player.game_id)
 
         return {
@@ -159,12 +173,25 @@ export default class GameManager extends EventEmitter {
             promotionChoices,
         } = game!.placePiece(position)
 
-        await this.DB_Operations.saveMoveDB({game_id: player.game_id, move})
+        
+        queueToDB.push({
+            operation: this.DB_Operations.saveMoveDB, 
+            parameters: [{game_id: player.game_id, move}]
+        });
+        
 
-        if (checkmate) await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:player.email});
+        // await this.DB_Operations.saveMoveDB({game_id: player.game_id, move})
 
-        if (stalemate) await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:'stalemate'});
+        // if (checkmate) await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:player.email});
 
+        // if (stalemate) await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:'stalemate'});
+
+        if (checkmate || stalemate) {
+            queueToDB.push({
+                operation: this.DB_Operations.endGameDB, 
+                parameters: [{game_id:player.game_id, winner_email:checkmate ? player.email : 'stalemate'}]
+            });            
+        }
         return {
             type: 'MOVE_PLACED',
             move,
@@ -213,7 +240,12 @@ export default class GameManager extends EventEmitter {
             winner,
         } = game!.promotPawn(promotTo)
 
-        await this.DB_Operations.saveMoveDB({game_id: player.game_id, move})
+        queueToDB.push({
+            operation: this.DB_Operations.saveMoveDB, 
+            parameters: [{game_id: player.game_id, move}]
+        });
+
+        // await this.DB_Operations.saveMoveDB({game_id: player.game_id, move})
 
         return {
             type: 'MOVE_PLACED',

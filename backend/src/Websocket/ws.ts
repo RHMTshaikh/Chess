@@ -187,8 +187,11 @@ export default function makeWebSocketServer (gameManager: GameManager) {
     
                     if (json.type === MessageType.PLACE) {
                         if (ws.role !== 'PLAYER') throw new AppError('only players can make move', 400);
-
+                        
+                        
                         const result = await gameManager.placePiece(ws, json.position);
+                        
+
 
                         const {
                             move,
@@ -243,7 +246,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                                 turn,
                                 winner: winner?.color,
                             }))
-                        })    
+                        });
                         return;
                     }
     
@@ -307,7 +310,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             }))
                         })    
                         return;
-                    }
+                    };
     
                     if (json.type === MessageType.CURRENT_STATE) {
                         const result = gameManager.currentState({ player: ws });
@@ -327,7 +330,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             type: 'QUIT_WAITING',
                         }))
                         return
-                    }
+                    };
                     
                     if (json.type === MessageType.QUIT_GAME) {
                         if (ws.role !== 'PLAYER') throw new AppError('only players can quit game', 400);

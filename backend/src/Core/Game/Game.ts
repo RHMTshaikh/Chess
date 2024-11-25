@@ -37,7 +37,7 @@ export default class Game extends EventEmitter{
 
         this.timer = setTimeout(() => {
             console.log('duration expired winner whiteplayer');            
-            this.emit('durationExpired', this.whitePlayer);
+            this.emit('durationExpired', this.blackPlayer);
         }, this.whitePlayer.time + 1000);
     }
 
@@ -58,27 +58,6 @@ export default class Game extends EventEmitter{
 
     getBlackTime(){
         return this.blackPlayer.time;
-    }
-    
-    currentState(){
-
-        const timeElapsed = Date.now() - this.lastMoveTimestamp;
-        this.lastMoveTimestamp = Date.now();
-
-        if (this.chessGame.turn() === 'white'){
-            this.whitePlayer.time -= timeElapsed;
-
-        } else if(this.chessGame.turn() === 'black'){
-            this.blackPlayer.time -= timeElapsed;
-        }
-
-        return {
-            board: this.chessGame.currentBoard(),
-            whiteTime: this.whitePlayer.time,
-            blackTime: this.blackPlayer.time,
-            turn: this.chessGame.turn() as 'white' | 'black' | false,
-            winner: this.winner,
-        }
     }
 
     getSpectators(){
@@ -113,6 +92,27 @@ export default class Game extends EventEmitter{
         return validMoves.map((element: {y:number, x:number}) => this.indexToNotation(element));
     }
 
+    currentState(){
+
+        const timeElapsed = Date.now() - this.lastMoveTimestamp;
+        this.lastMoveTimestamp = Date.now();
+
+        if (this.chessGame.turn() === 'white'){
+            this.whitePlayer.time -= timeElapsed;
+
+        } else if(this.chessGame.turn() === 'black'){
+            this.blackPlayer.time -= timeElapsed;
+        }
+
+        return {
+            board: this.chessGame.currentBoard(),
+            whiteTime: this.whitePlayer.time,
+            blackTime: this.blackPlayer.time,
+            turn: this.chessGame.turn() as 'white' | 'black' | false,
+            winner: this.winner,
+        }
+    }
+
     placePiece(position: string):{
             move:Move,
             board:number[][]
@@ -136,12 +136,11 @@ export default class Game extends EventEmitter{
             checkmate,
             stalemate,
             promotionChoices,
-        } = this.chessGame.place(index);
-        
+        } = this.chessGame.place(index);   
         
         if (!promotionChoices) {
-            const currentTime = Date.now();
-            const timeElapsed = currentTime - this.lastMoveTimestamp;
+            const timeElapsed = Date.now() - this.lastMoveTimestamp;
+            this.lastMoveTimestamp = Date.now();
 
             if (this.chessGame.turn() === 'black'){
 
@@ -149,7 +148,7 @@ export default class Game extends EventEmitter{
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
                     console.log('duration expired winner blackplayer');
-                    this.emit('durationExpired', this.blackPlayer);
+                    this.emit('durationExpired', this.whitePlayer);
                 }, this.blackPlayer.time + 1000);
 
             } else if(this.chessGame.turn() === 'white'){
@@ -158,7 +157,7 @@ export default class Game extends EventEmitter{
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
                     console.log('duration expired winner whiteplayer');
-                    this.emit('durationExpired', this.whitePlayer);
+                    this.emit('durationExpired', this.blackPlayer);
                 }, this.whitePlayer.time + 1000);
             }
         }
@@ -189,6 +188,7 @@ export default class Game extends EventEmitter{
         this.blackPlayer.turn = !this.whitePlayer.turn;
         
         this.moves.push(moveStringNotation);
+        
         return {
             move: moveStringNotation,
             board: this.chessGame.currentBoard(),
@@ -212,8 +212,8 @@ export default class Game extends EventEmitter{
             stalemate,
         } = this.chessGame.promotPawn(promoteTo);
 
-        const currentTime = Date.now();
-        const timeElapsed = currentTime - this.lastMoveTimestamp;
+        const timeElapsed = Date.now(); - this.lastMoveTimestamp;
+        this.lastMoveTimestamp = Date.now();
 
         if (this.chessGame.turn() === 'black'){
 
@@ -221,7 +221,7 @@ export default class Game extends EventEmitter{
             clearTimeout(this.timer);
             this.timer = setTimeout(() => {
                 console.log('duration expired winner blackplayer');
-                this.emit('durationExpired', this.blackPlayer);
+                this.emit('durationExpired', this.whitePlayer);
             }, this.blackPlayer.time + 1000);
             
         } else if (this.chessGame.turn() === 'white'){
@@ -230,7 +230,7 @@ export default class Game extends EventEmitter{
             clearTimeout(this.timer);
             this.timer = setTimeout(() => {
                 console.log('duration expired winner whiteplayer');
-                this.emit('durationExpired', this.whitePlayer);
+                this.emit('durationExpired', this.blackPlayer);
             }, this.whitePlayer.time + 1000);
         }
 
@@ -276,5 +276,10 @@ export default class Game extends EventEmitter{
 
     turn(){
         return this.chessGame.turn() as 'white' | 'black' | false;
+    }
+
+    cleanup() {
+        clearTimeout(this.timer);
+        this.removeAllListeners(); 
     }
 }

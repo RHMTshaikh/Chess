@@ -389,7 +389,7 @@ export default class Chess {
             promotionChoices:null|number[]
 
         } {
-
+        
         if (this.checkmate || this.stalemate) throw new AppError('game is over' ,400);
 
         if (!this.pickedPiecePosition) throw new AppError('first pick a piece', 400);
