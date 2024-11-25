@@ -36,7 +36,7 @@ export default class Game extends EventEmitter{
         this.lastMoveTimestamp = Date.now();
 
         this.timer = setTimeout(() => {
-            console.log('duration expired winner whiteplayer');            
+            console.log('duration expired winner blackplayer');            
             this.emit('durationExpired', this.blackPlayer);
         }, this.whitePlayer.time + 1000);
     }
@@ -84,26 +84,19 @@ export default class Game extends EventEmitter{
         return this.spectators.length;
     }
 
-    pickPiece(player:Player, position: string): string[] {
-        if (player.color !== this.chessGame.turn()) throw new AppError('Not your turn', 400);
-
-        let index = this.index(position);
-        const validMoves = this.chessGame.pick(index);
-        return validMoves.map((element: {y:number, x:number}) => this.indexToNotation(element));
-    }
-
+    
     currentState(){
-
+        
         const timeElapsed = Date.now() - this.lastMoveTimestamp;
         this.lastMoveTimestamp = Date.now();
-
+        
         if (this.chessGame.turn() === 'white'){
             this.whitePlayer.time -= timeElapsed;
 
         } else if(this.chessGame.turn() === 'black'){
             this.blackPlayer.time -= timeElapsed;
         }
-
+        
         return {
             board: this.chessGame.currentBoard(),
             whiteTime: this.whitePlayer.time,
@@ -111,6 +104,14 @@ export default class Game extends EventEmitter{
             turn: this.chessGame.turn() as 'white' | 'black' | false,
             winner: this.winner,
         }
+    }
+    
+    pickPiece(player:Player, position: string): string[] {
+        if (player.color !== this.chessGame.turn()) throw new AppError('Not your turn', 400);
+
+        let index = this.index(position);
+        const validMoves = this.chessGame.pick(index);
+        return validMoves.map((element: {y:number, x:number}) => this.indexToNotation(element));
     }
 
     placePiece(position: string):{
@@ -147,7 +148,7 @@ export default class Game extends EventEmitter{
                 this.whitePlayer.time -= timeElapsed;
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
-                    console.log('duration expired winner blackplayer');
+                    console.log('duration expired winner whiteplayer');
                     this.emit('durationExpired', this.whitePlayer);
                 }, this.blackPlayer.time + 1000);
 
@@ -156,7 +157,7 @@ export default class Game extends EventEmitter{
                 this.blackPlayer.time -= timeElapsed;
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
-                    console.log('duration expired winner whiteplayer');
+                    console.log('duration expired winner blackPlayer');
                     this.emit('durationExpired', this.blackPlayer);
                 }, this.whitePlayer.time + 1000);
             }

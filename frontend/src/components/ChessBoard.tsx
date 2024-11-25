@@ -392,66 +392,68 @@ const ChessBoard: React.FC = () => {
     };
     
     const grabPiece = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-        if (count.current === 1 && role.current === 'PLAYER' ) {
-            const element = e.target as HTMLDivElement; //chess piece element
+        if (count.current === 1 && role.current === 'PLAYER') {
+            const element = e.target as HTMLDivElement; // chess piece element
             
             if (turn.current) {
                 if (element.classList.contains('chess-piece')) {
-                    const height = chessBoardRef.current?.offsetHeight! / 8;
-                    const width = chessBoardRef.current?.offsetWidth! / 8;
-                    const x = e.clientX - width / 2;
-                    const y = e.clientY - height / 2;
+                    const chessboard = chessBoardRef.current!;
+                    const height = chessboard.offsetHeight / 8;
+                    const width = chessboard.offsetWidth / 8;
+    
+                    const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+                    const scrollDown = window.scrollY || document.documentElement.scrollTop;
+            
+                    const pieceX = e.clientX  - width / 2 + scrollLeft;
+                    const pieceY = e.clientY  - height / 2 + scrollDown;
+    
                     element.style.position = 'absolute';
-                    element.style.left = `${x}px`;
-                    element.style.top = `${y}px`;
+                    element.style.left = `${pieceX}px`;
+                    element.style.top = `${pieceY}px`;
                     element.style.zIndex = '5';
                     element.style.width = `${width}px`;
                     element.style.height = `${height}px`;
                     document.addEventListener('mouseup', dropPiece);
-                    
+    
                     pickedPiece.current = {
                         element,
                         position: cellPosition(element)
-                    }
+                    };
                     console.log('grabPiece: ', pickedPiece.current.position);
-                    
+    
                     ws.current!.send(JSON.stringify({
                         type: 'PICK',
                         position: pickedPiece.current.position
-                    }))
-                    
+                    }));
                 }
-            }else console.log('turn: ', turn.current);
+            } else console.log('turn: ', turn.current);
         }
     };
-
+    
     const movePiece = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-       
         const chessboard = chessBoardRef.current;
         if (pickedPiece.current && chessboard) {
-            const height = chessBoardRef.current?.offsetHeight! / 8;
-            const width = chessBoardRef.current?.offsetWidth! / 8;
-            const minX = chessboard.offsetLeft;
-            const minY = chessboard.offsetTop;
-            const maxX = minX + chessboard.offsetWidth;
-            const maxY = minY + chessboard.offsetHeight;
+            const height = chessboard.offsetHeight / 8;
+            const width = chessboard.offsetWidth / 8;
+    
+            const minX = chessboard.offsetLeft; 
+            const minY = chessboard.offsetTop; 
+            const maxX = minX + chessboard.offsetWidth - width;
+            const maxY = minY + chessboard.offsetHeight - height;
 
-            const pieceX = e.clientX - height / 2;
-            const pieceY = e.clientY - width / 2;
-            
+            const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+            const scrollDown = window.scrollY || document.documentElement.scrollTop;
+    
+            const pieceX = e.clientX  - width / 2 + scrollLeft;
+            const pieceY = e.clientY  - height / 2 + scrollDown;
+
             pickedPiece.current.element!.style.position = 'absolute';
             pickedPiece.current.element!.style.left = 
-                e.clientX < minX ? 
-                `${minX - 25}px` : 
-                e.clientX > maxX ? 
-                    `${maxX - 35}px` : 
-                    `${pieceX}px`;
+                pieceX < minX ? `${minX}px` : 
+                pieceX > maxX ? `${maxX}px` : `${pieceX}px`;
             pickedPiece.current.element!.style.top = 
-                e.clientY < minY ? 
-                    `${minY - 25}px` : 
-                    e.clientY > maxY ? 
-                        `${maxY - 35}px` : 
-                        `${pieceY}px`;         
+                pieceY < minY ? `${minY}px` : 
+                pieceY > maxY ? `${maxY}px` : `${pieceY}px`;
         }
     };
 
