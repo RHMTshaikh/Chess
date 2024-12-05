@@ -39,9 +39,43 @@ const DB_Operations:DB_Operations = Object.freeze({
     findUserByEmailDB,
     // countOfRowsInGameTableDB,
     removeRefreshTokenDB,
+    getRatingDB,
+    updateRating,
 });
 
 export { DB_Operations, startPoolConnection };
+
+async function updateRating({ email, rating }: { email: string; rating: number }): Promise<void> {
+    console.log('updateRating email:', email, 'rating:', rating);
+    
+    const client = await makeNewClient();
+    const query = `UPDATE users SET rating = $1 WHERE email = $2;`;
+    const values = [rating, email];
+    try {
+        await client.query(query, values);
+    } catch (error) {
+        console.log('updateRating error:', (error as Error).message);
+        
+        throw new AppError('Failed to update rating', 500);
+    } finally {
+        client.release();
+    }
+}
+
+async function getRatingDB({ email }: { email: string }): Promise<number> {
+    const client = await makeNewClient();
+    const query = `SELECT rating FROM users WHERE email = $1;`;
+    const values = [email];
+    try {
+        const results = await client.query(query, values);
+        const rating = results.rows[0].rating;
+        return parseInt(rating);
+    } catch (error) {
+        throw new AppError('Failed to get rating', 500);
+    } finally {
+        client.release();
+    }
+}
 
 async function saveRefreshTokenDB({email, refreshToken }: { 
     email:string, 
@@ -77,24 +111,6 @@ async function removeRefreshTokenDB({email }: {
         client.release();
     }
 }
-
-// async function countOfRowsInGameTableDB() : Promise<number | null> {
-//     const client = await makeNewClient();
-//     const query = `SELECT COUNT(*) AS row_count FROM games;`;
-//     const values:string[] = [];
-//     try {
-//         const results = await client.query(query, values);
-//         return results.rows[0].row_count! ;
-
-//     } catch (error) {
-//         return null;
-
-//     } finally {
-//         client.release();
-//     }
-// }
-
-
 
 async function publicGamesDB({ limit }:{limit:number}): Promise<PublicGames[] | Error> {
     const client = await makeNewClient();
@@ -204,21 +220,23 @@ async function endGameDB({game_id,winner_email,}: {
     }
 }
 
-async function addUserDB({name,email,password,}: {
+async function addUserDB({name,email,password,refresh_token, rating}: {
     name: string;
     email: string;
     password: string;
+    refresh_token: string;
+    rating: number;
     }):Promise<( User & { password:string, refresh_token:string } ) | null>{
 
     const client = await makeNewClient();
-    const query = `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *;`;
-    const values = [name, email, password];
+    const query = `INSERT INTO users (name, email, password, refresh_token, rating) VALUES ($1, $2, $3, $4, $5) RETURNING *;`;
+    const values = [name, email, password, refresh_token, rating];
 
     try {
         const result = await client.query(query, values);
         if (result.rows.length > 0) {
-            const { email, name, rank, password, refresh_token } = result.rows[0];
-            return { email, name, rank, password, refresh_token };
+            const { email, name, rank, rating, password, refresh_token } = result.rows[0];
+            return { email, name, rank, rating, password, refresh_token };
         } else {
             return null;
         }
@@ -240,8 +258,8 @@ async function findUserByEmailDB({email}:{
     try {
         const result = await client.query(query, values);
         if (result.rows.length > 0) {
-            const { email, name, rank, password, refresh_token } = result.rows[0];
-            return { email, name, rank, password, refresh_token };
+            const { email, name, rank, rating, password, refresh_token } = result.rows[0];
+            return { email, name, rank, rating, password, refresh_token };
 
         } else {
             return null;

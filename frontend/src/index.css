@@ -208,6 +208,12 @@ div.play-game{
   grid-area: 4/2/5/3;
   place-items: center;
 }
+.timer {
+  background-color: white;
+  border-radius: 3px;
+  padding-left: 3px;
+  padding-right: 3px;
+}
 .tile {
   object-fit:contain;
   overflow: hidden;

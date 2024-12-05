@@ -69,7 +69,8 @@ export function makeExpressCallback (controller: Function) { // here we are sepa
                 res.status(httpResponse.statusCode);
                 
                 if (httpResponse.body) {
-                    res.type('json')
+                    res.type('json');
+                    console.log(httpRequest.method, httpRequest.path ,'httpResponse.body', httpResponse.body);                    
                     res.send(httpResponse.body);
                 }else{
                     res.end();

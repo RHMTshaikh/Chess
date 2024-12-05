@@ -1,5 +1,3 @@
-// Chess\frontend\src\pages\DashBoard.tsx
-
 import MyGames from "../components/MyGames"
 import PublicGames from "../components/PublicGames"
 import PlayGame from "../components/PlayGame"

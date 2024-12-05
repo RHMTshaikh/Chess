@@ -23,6 +23,7 @@ export interface Move {
 export interface ChessPlayer {
     name: string;
     rank: number;
+    rating: number;
     turn: boolean ;
     time:number;
     color: 'white' | 'black' ;

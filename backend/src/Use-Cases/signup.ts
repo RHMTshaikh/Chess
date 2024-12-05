@@ -4,7 +4,7 @@ import { createAccessToken, createRefreshToken } from '../Encrypter/jsonwebtoken
 import ms from 'ms';
 import AppError from '../Errors/AppError';
 
-const cycleTimeForToken = '1h';
+const cycleTimeForToken = '5h';
 const cycleTimeForCredentials = '7d';
 
 export const accessTokenOptions = {
@@ -14,6 +14,8 @@ export const refreshTokenOptions = {
     expiresIn: cycleTimeForCredentials,
     notBefore: cycleTimeForToken,
 };
+
+export const defaultRating = 1200;
 
 export default function makeSignUp ({ DB_Operations }:{DB_Operations: DB_Operations}) {
     return async function signUp ({ name, email, password }: { 
@@ -45,24 +47,23 @@ export default function makeSignUp ({ DB_Operations }:{DB_Operations: DB_Operati
         }
 
         const encryptedPassword = await encrypter(password);
+        
+        const accessToken = createAccessToken({ email, options: accessTokenOptions });
+        const refreshToken = createRefreshToken({ email, options: refreshTokenOptions });
 
-        const user = await DB_Operations.addUserDB({ name, email, password: encryptedPassword });
+        const hashedRefreshToken = await encrypter(refreshToken);
+
+        const user = await DB_Operations.addUserDB({ name, email, password: encryptedPassword, refresh_token: hashedRefreshToken, rating: defaultRating });
         
         if ( !user ) {
             throw new AppError('Failed to add user to db', 500);
         }
         
-        const accessToken = createAccessToken({ user, options: accessTokenOptions });
-        const refreshToken = createRefreshToken({ user, options: refreshTokenOptions });
-        
-        const hashedRefreshToken = await encrypter(refreshToken);
-
-        await DB_Operations.saveRefreshTokenDB({ email, refreshToken: hashedRefreshToken });
-        
         return {
             name: user.name,
             email: user.email,
             rank: user.rank,
+            rating: user.rating,
             accessToken,
             refreshToken,
             accessTokenMaxAge: ms(cycleTimeForCredentials)/1000,
