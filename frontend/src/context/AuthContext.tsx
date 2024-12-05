@@ -4,13 +4,15 @@ interface User {
     email: string;
     name: string;
     rank: number;
+    rating: number;
 }
 interface AuthState {
     user: User | null;
 }
 type AuthAction =
     | { type: 'LOGIN'; payload: User }
-    | { type: 'LOGOUT' };
+    | { type: 'LOGOUT' }
+    | { type: 'RATING'; payload: number }
 
 export interface AuthContextType extends AuthState {
     dispatch: Dispatch<AuthAction>;
@@ -22,11 +24,17 @@ export const authReducer = (state: AuthState, action: AuthAction): AuthState => 
     switch (action.type) {
         case 'LOGIN':
             localStorage.setItem('user', JSON.stringify(action.payload));
+            localStorage.setItem('user', JSON.stringify(action.payload));
             return { user: action.payload };
         case 'LOGOUT':
             localStorage.removeItem('user')
             localStorage.removeItem('gameState')
             return { user: null };
+        case 'RATING':
+            const user = state.user!;
+            user.rating = action.payload;
+            localStorage.setItem('user', JSON.stringify(user));
+            return { user};
         default:
             return state;
     }

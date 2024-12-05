@@ -1,16 +1,5 @@
 import { useAuthContext } from "./useAuthContext";
 
-interface User {
-    name: string;
-    email: string;
-    rank: string
-}
-
-interface LoginResponse {
-    user: User;
-    token: string; 
-    error?: string;
-}
 interface LoginParams {
     email: string;
     name?: string;
@@ -20,7 +9,6 @@ interface LoginParams {
 export const useLogin = () => {
     const { dispatch } = useAuthContext();
 
-    
     const login = async ({ email, password }: LoginParams) => {
         try {
             const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/login`, {

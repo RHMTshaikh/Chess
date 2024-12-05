@@ -2,6 +2,7 @@ import Chess  from '../Chess-Game-Logic/Chess'
 import { Player, Move, PositionNotation } from "../../types"
 import { EventEmitter } from 'events';
 import AppError from '../../Errors/AppError';
+import { eloRating } from '../Entites/Rating/Rating';
 
 export default class Game extends EventEmitter{
     private whitePlayer: Player;
@@ -36,8 +37,10 @@ export default class Game extends EventEmitter{
         this.lastMoveTimestamp = Date.now();
 
         this.timer = setTimeout(() => {
-            console.log('duration expired winner blackplayer');            
-            this.emit('durationExpired', this.blackPlayer);
+            console.log('duration expired winner blackplayer');    
+            this.winner = this.blackPlayer;
+            this.updateRatings();        
+            this.emit('durationExpired', {winner: this.blackPlayer, spectators: this.spectators});
         }, this.whitePlayer.time + 1000);
     }
 
@@ -149,7 +152,9 @@ export default class Game extends EventEmitter{
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
                     console.log('duration expired winner whiteplayer');
-                    this.emit('durationExpired', this.whitePlayer);
+                    this.winner = this.whitePlayer;
+                    this.updateRatings();
+                    this.emit('durationExpired', {winner: this.whitePlayer, spectators: this.spectators});
                 }, this.blackPlayer.time + 1000);
 
             } else if(this.chessGame.turn() === 'white'){
@@ -158,7 +163,9 @@ export default class Game extends EventEmitter{
                 clearTimeout(this.timer);
                 this.timer = setTimeout(() => {
                     console.log('duration expired winner blackPlayer');
-                    this.emit('durationExpired', this.blackPlayer);
+                    this.winner = this.blackPlayer;
+                    this.updateRatings();
+                    this.emit('durationExpired', {winner: this.blackPlayer, spectators: this.spectators});
                 }, this.whitePlayer.time + 1000);
             }
         }
@@ -179,10 +186,12 @@ export default class Game extends EventEmitter{
             this.winner = this.whitePlayer.turn ? this.blackPlayer : this.whitePlayer;
             this.whitePlayer.turn = false;
             this.blackPlayer.turn = false;
+            this.updateRatings();
         }
         if (stalemate){
             this.whitePlayer.turn = false;
-            this.blackPlayer.turn = false;          
+            this.blackPlayer.turn = false;  
+            this.updateRatings();        
         }
         
         this.whitePlayer.turn = this.chessGame.turn() === 'white';
@@ -222,7 +231,9 @@ export default class Game extends EventEmitter{
             clearTimeout(this.timer);
             this.timer = setTimeout(() => {
                 console.log('duration expired winner blackplayer');
-                this.emit('durationExpired', this.whitePlayer);
+                this.winner = this.whitePlayer;
+                this.updateRatings();
+                this.emit('durationExpired', {winner: this.whitePlayer, spectators: this.spectators});
             }, this.blackPlayer.time + 1000);
             
         } else if (this.chessGame.turn() === 'white'){
@@ -231,7 +242,9 @@ export default class Game extends EventEmitter{
             clearTimeout(this.timer);
             this.timer = setTimeout(() => {
                 console.log('duration expired winner whiteplayer');
-                this.emit('durationExpired', this.blackPlayer);
+                this.winner = this.blackPlayer;
+                this.updateRatings();
+                this.emit('durationExpired', {winner: this.blackPlayer, spectators: this.spectators});
             }, this.whitePlayer.time + 1000);
         }
 
@@ -250,10 +263,12 @@ export default class Game extends EventEmitter{
             this.winner = this.whitePlayer.turn ? this.blackPlayer : this.whitePlayer;
             this.whitePlayer.turn = false;
             this.blackPlayer.turn = false;
+            this.updateRatings();
         }
         if (stalemate){
             this.whitePlayer.turn = false;
             this.blackPlayer.turn = false;          
+            this.updateRatings();
         }
 
         this.whitePlayer.turn = this.chessGame.turn() === 'white';
@@ -282,5 +297,39 @@ export default class Game extends EventEmitter{
     cleanup() {
         clearTimeout(this.timer);
         this.removeAllListeners(); 
+    }
+
+    updateRatings(){
+        if (this.winner){
+            if (this.winner.color === 'white'){
+                eloRating(this.whitePlayer, this.blackPlayer, 1);
+            } else if (this.winner.color === 'black'){
+                eloRating(this.whitePlayer, this.blackPlayer, 0);
+            } else {
+                eloRating(this.whitePlayer, this.blackPlayer, 0.5);
+            }
+        }
+    }
+
+    leaveGame(player: Player){
+        const timeElapsed = Date.now() - this.lastMoveTimestamp;
+        this.lastMoveTimestamp = Date.now();
+        
+        if (this.chessGame.turn() === 'white'){
+            this.whitePlayer.time -= timeElapsed;
+
+        } else if(this.chessGame.turn() === 'black'){
+            this.blackPlayer.time -= timeElapsed;
+        }
+        
+        if (player === this.whitePlayer){
+            this.winner = this.blackPlayer;
+        } else if (player === this.blackPlayer){
+            this.winner = this.whitePlayer;
+        } else {
+            throw new AppError('Player not in game', 400);
+        }
+        this.updateRatings();
+        return this.spectators;
     }
 }

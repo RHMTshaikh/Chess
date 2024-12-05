@@ -38,8 +38,8 @@ export default function makeRefreshToken ({ DB_Operations }:{DB_Operations: DB_O
             throw new AppError('wrong refresh token', 401);
         }
         
-        const newAccessToken = createAccessToken({ user, options: accessTokenOptions });
-        const newRefreshToken = createRefreshToken({ user, options: refreshTokenOptions });
+        const newAccessToken = createAccessToken(  { email: user.email, options: accessTokenOptions });
+        const newRefreshToken = createRefreshToken({ email: user.email, options: refreshTokenOptions });
 
         const hashedRefreshToken = await encrypter(newRefreshToken);
 

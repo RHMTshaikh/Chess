@@ -29,6 +29,10 @@ export default class GameManager extends EventEmitter {
         return player.color === 'white' ? 'black' : 'white';
     }
 
+    getRating = async (player: Player): Promise<number> =>  {
+        return await this.DB_Operations.getRatingDB({email: player.email});
+    }
+
     createGame = async (player: Player, duration: number ): Promise<{
         type: 'GAME_CREATED',
         game_id: string,
@@ -54,10 +58,6 @@ export default class GameManager extends EventEmitter {
             const white_player_email = player.color === 'white' ? player.email : waitingPlayer.email;
             const black_player_email = player.color === 'black' ? player.email : waitingPlayer.email;
             
-            // queueToDB.push({
-            //     operation: this.DB_Operations.addNewGameDB, 
-            //     parameters: [{ white_player_email, black_player_email}]
-            // });
             const game_id = await this.DB_Operations.addNewGameDB({ white_player_email, black_player_email});
             
             player.game_id = game_id;
@@ -65,13 +65,24 @@ export default class GameManager extends EventEmitter {
 
             const game = new Game(waitingPlayer, player, duration);
 
-            game.on('durationExpired', async (winner : Player) => {
+            game.on('durationExpired', ({winner, spectators}:{winner:Player; spectators:Player[]}) => {
                 queueToDB.push({
                     operation: this.DB_Operations.endGameDB, 
                     parameters: [{game_id:winner.game_id, winner_email:winner.email}]
                 });
-                // await this.DB_Operations.endGameDB({game_id:winner.game_id, winner_email:winner.email});
-                this.emit('durationExpired', winner);
+                queueToDB.push({
+                    operation: this.DB_Operations.updateRating, 
+                    parameters: [{email: winner.email, rating: winner.rating}]
+                });
+                queueToDB.push({
+                    operation: this.DB_Operations.updateRating, 
+                    parameters: [{email: winner.opponent.email, rating: winner.opponent.rating}]
+                });
+
+                this.emit('durationExpired', {winner, spectators});
+
+                game.cleanup();
+                this.games.delete(game_id);
             });
 
             this.games.set(game_id, game);
@@ -95,36 +106,49 @@ export default class GameManager extends EventEmitter {
     }
 
     leaveGame = async (player:Player): Promise<{
-        opponent: Player,
         spectators: (WebSocket)[],
+        whiteTime: number,
+        blackTime: number,
         } > => {
 
         const index = this.pendingUser[player.color].indexOf(player);
         if (index !== -1) {
             this.pendingUser[player.color].splice(index, 1);
             return {
-                opponent: player.opponent!,
-                spectators: [], 
+                spectators: [],
+                whiteTime: 0,
+                blackTime: 0,
             }            
         }
 
         if (!this.games.has(player.game_id)) throw new AppError('game not found', 404);
 
         const game = this.games.get(player.game_id)!;
-        const opponent = player.opponent;
-        const spectators = game.getSpectators();
+        const spectators =  game.leaveGame(player);
+        const whiteTime = game.getWhiteTime();
+        const blackTime = game.getBlackTime();
         game.cleanup();
+        
 
         queueToDB.push({
             operation: this.DB_Operations.endGameDB, 
             parameters: [{game_id:player.game_id, winner_email:player.opponent.email}]
         });
-        // await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:player.opponent.email});
+        queueToDB.push({
+            operation: this.DB_Operations.updateRating, 
+            parameters: [{email: player.email, rating: player.rating}]
+        });
+        queueToDB.push({
+            operation: this.DB_Operations.updateRating, 
+            parameters: [{email: player.opponent.email, rating: player.opponent.rating}]
+        });
+        
         this.games.delete(player.game_id)
 
         return {
-            opponent,
             spectators,
+            whiteTime,
+            blackTime,
         }
     }
 
@@ -173,25 +197,18 @@ export default class GameManager extends EventEmitter {
             promotionChoices,
         } = game!.placePiece(position)
 
-        
         queueToDB.push({
             operation: this.DB_Operations.saveMoveDB, 
             parameters: [{game_id: player.game_id, move}]
         });
         
-
-        // await this.DB_Operations.saveMoveDB({game_id: player.game_id, move})
-
-        // if (checkmate) await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:player.email});
-
-        // if (stalemate) await this.DB_Operations.endGameDB({game_id:player.game_id, winner_email:'stalemate'});
-
         if (checkmate || stalemate) {
             queueToDB.push({
                 operation: this.DB_Operations.endGameDB, 
                 parameters: [{game_id:player.game_id, winner_email:checkmate ? player.email : 'stalemate'}]
             });            
         }
+
         return {
             type: 'MOVE_PLACED',
             move,
@@ -210,7 +227,7 @@ export default class GameManager extends EventEmitter {
     }
     
     promotePawn = async (player: Player, promotTo: number):Promise<{
-        type: 'MOVE_PLACED'|'CHECK'|'CHECK_MATE'|'STALEMATE',
+        type: 'MOVE_PLACED',
         move: Move,
         board: number[][],
         opponent: Player,
@@ -244,8 +261,6 @@ export default class GameManager extends EventEmitter {
             operation: this.DB_Operations.saveMoveDB, 
             parameters: [{game_id: player.game_id, move}]
         });
-
-        // await this.DB_Operations.saveMoveDB({game_id: player.game_id, move})
 
         return {
             type: 'MOVE_PLACED',

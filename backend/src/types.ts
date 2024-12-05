@@ -26,6 +26,7 @@ export interface User {
     name: string;
     email: string;
     rank: number;
+    rating: number;
 }
 
 
@@ -42,7 +43,7 @@ export type RetrieveGameDB =
 => Promise<any>;
 
 export type AddUserDB = 
-({ name, email, password }: { name: string; email: string; password: string }) 
+({ name, email, password, refresh_token, rating}: { name: string; email: string; password: string; refresh_token: string; rating: number }) 
 => Promise<User | null>;
 
 export type FindUserByEmailDB = 
@@ -68,6 +69,15 @@ export type AddNewGameDB =
 export type SaveMoveDB = 
 ({ game_id, move }: { game_id: string; move: Move }) 
 => Promise<any>;
+
+export type getRatingDB =
+({ email }: { email: string })
+=> Promise<number>;
+
+export type updateRating = 
+({ email, rating }: { email: string; rating: number })
+=> Promise<any>;
+
 // Define the DB_Operations interface
 export interface DB_Operations {
     publicGamesDB: PublicGamesDB;
@@ -80,6 +90,8 @@ export interface DB_Operations {
     endGameDB: EndGameDB;
     addNewGameDB: AddNewGameDB;
     saveMoveDB: SaveMoveDB;
+    getRatingDB: getRatingDB;
+    updateRating: updateRating;
 }
 
 export interface DBQueueElement {
@@ -107,6 +119,7 @@ export interface Opponent  {
 export interface Player extends WebSocket {
     name: string;
     rank: number;
+    rating: number;
 	turn: boolean ;
     type: 'HUMAN' | 'BOT' ;
     time: number;

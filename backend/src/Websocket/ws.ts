@@ -18,18 +18,25 @@ function assignColor(color: 'white' | 'black' | 'random') {
 
 export default function makeWebSocketServer (gameManager: GameManager) {
 
-    gameManager.on('durationExpired', async (winner:Player) => {
+    gameManager.on('durationExpired', ({winner, spectators}:{winner:Player; spectators:Player[]}) => {
         console.log('game over event received in ws.ts');
         winner.send(JSON.stringify({
             type: 'GAME_OVER',
             message: `You win because, ${winner.color === 'white' ? 'black' : 'white'} ran out of time`,
-        }))
+            newRating: winner.rating,
+        }));
         winner.opponent.send(JSON.stringify({
             type: 'GAME_OVER',
             message: `You lose because, you ran out of time`,
-        }))
-        
-        // await gameManager.DB_Operations.endGameDB({game_id, winner_email});
+            newRting: winner.opponent.rating,
+        }));
+        spectators.forEach((ws: globalThis.WebSocket) => {
+            ws.send(JSON.stringify({
+                type: 'GAME_OVER',
+                message: `Game over, ${winner.color} wins because, ${winner.color === 'white' ? 'black' : 'white'} ran out of time`,
+            }));
+        });
+
     });
     
     return function startWebSocketServer({ server }: { server: Server }) {
@@ -41,7 +48,6 @@ export default function makeWebSocketServer (gameManager: GameManager) {
         webSocketServer.on('connection', async function connection(ws: Player&WebSocket , req) {
             try {
                 console.log('new ws connection: ');
-    
                 
                 if (!req.headers.cookie) throw new AppError('no cookie found', 400);
     
@@ -50,7 +56,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                 const email = await authorization({ token: cookies.accessToken });
     
                 ws.email = email;
-                
+                ws.rating = await gameManager.getRating(ws);
                 
                 const parameters = url.parse(req.url ?? '', true).query as {
                     role: 'PLAYER' | 'SPECTATOR',
@@ -79,7 +85,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                         ws.send(JSON.stringify({
                             type:         'CONNECTED',
                             opponentName: ws.opponent.name,
-                            opponentRank: ws.opponent.rank,
+                            opponentRating: ws.opponent.rating,
                             game_id:      results.game_id,
                             pieceColor:   ws.color,
                             turn:         results.turn,
@@ -92,7 +98,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                         results.opponent.send(JSON.stringify({
                             type:         'CONNECTED',
                             opponentName: ws.name,
-                            opponentRank: ws.rank,
+                            opponentRating: ws.rating,
                             game_id:      results.game_id,
                             pieceColor:   results.opponent.color,
                             turn:         results.turn,
@@ -102,13 +108,14 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             whiteTime:    results.whiteTime,
                             blackTime:    results.blackTime,
                         }))
-                    }
+                    };
                     if (results.type === 'WAITING') {
                         ws.send(JSON.stringify({
                             type: 'WAITING',
                             meassage: 'waiting for other player to join'
                         }))
-                    }
+                    };
+
                 }else if (ws.role === 'SPECTATOR') {
                     ws.game_id = parameters.game_id as string;
                 
@@ -116,9 +123,9 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                 
                     const whitePlayer = result.players.find((player: Player) => player.color === 'white');
                     const blackPlayer = result.players.find((player: Player) => player.color === 'black');
-                
-                    const whitePlayerInfo = whitePlayer ? { name: whitePlayer.name, rank: whitePlayer.rank, turn: whitePlayer.turn, type: whitePlayer.type, time: whitePlayer.time } : null;
-                    const blackPlayerInfo = blackPlayer ? { name: blackPlayer.name, rank: blackPlayer.rank, turn: blackPlayer.turn, type: blackPlayer.type, time: blackPlayer.time } : null;
+
+                    const whitePlayerInfo = whitePlayer ? { name: whitePlayer.name, rating: whitePlayer.rating, turn: whitePlayer.turn, type: whitePlayer.type, time: whitePlayer.time } : null;
+                    const blackPlayerInfo = blackPlayer ? { name: blackPlayer.name, rating: blackPlayer.rating, turn: blackPlayer.turn, type: blackPlayer.type, time: blackPlayer.time } : null;
                 
                     if (result.type === 'SPECTATING') {
                         ws.send(JSON.stringify({
@@ -137,7 +144,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             player.send(JSON.stringify({
                                 type: 'SPECTATOR_JOINED',
                                 name: ws.name,
-                                rank: ws.rank,
+                                rating: ws.rating,
                                 spectatorCount: result.spectatorCount,
                             }))
                         })
@@ -160,9 +167,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
             }
 
             ws.on('message', async function incoming(data: WebSocket.Data) {
-                
                 try {
-                    
                     let json: {
                         type: string, 
                         position: string,
@@ -183,15 +188,12 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             validMoves: results.validMoves
                         }))
                         return			
-                    }
+                    };
     
                     if (json.type === MessageType.PLACE) {
                         if (ws.role !== 'PLAYER') throw new AppError('only players can make move', 400);
                         
-                        
                         const result = await gameManager.placePiece(ws, json.position);
-                        
-
 
                         const {
                             move,
@@ -218,7 +220,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             checkmate,
                             stalemate,
                             promotionChoices,
-                            winner: winner?.color,
+                            winner: winner ? winner.color : null,
                         }));
                         result.opponent.send(JSON.stringify({
                             type: 'OPPONENT_MOVE',
@@ -231,11 +233,11 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             check,
                             checkmate,
                             stalemate,
-                            winner: winner?.color,
+                            winner: winner ? winner.color : null,
                         }));
                         result.spectators.forEach((ws: globalThis.WebSocket) => {
                             ws.send(JSON.stringify({
-                                type: 'MOVE',
+                                type: 'CURRENT_STATE',
                                 move,
                                 board,
                                 whiteTime,
@@ -244,11 +246,36 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                                 checkmate, // need to implement in spectator mode
                                 stalemate,
                                 turn,
-                                winner: winner?.color,
+                                winner: winner ? winner.color : null,
                             }))
                         });
+
+                        if (winner || stalemate) {
+                            const newRatingWhite = ws.color === 'white' ? ws.rating : ws.opponent.rating;
+                            const newRatingBlack = ws.color === 'black' ? ws.rating : ws.opponent.rating;
+                            result.spectators.forEach((spectator: globalThis.WebSocket) => {
+                                spectator.send(JSON.stringify({
+                                    type: 'GAME_OVER',
+                                    message: winner ? `${winner.color} wins by checkmate` : 'stalemate',
+                                    newRatingWhite,
+                                    newRatingBlack,
+                                }))
+                            });
+                            ws.send(JSON.stringify({
+                                type: 'GAME_OVER',
+                                message: winner ? 'You win by checkmate' : 'stalemate',
+                                newRating: ws.rating,
+                                newRatingOpponent: ws.opponent.rating,
+                            }));
+                            result.opponent.send(JSON.stringify({
+                                type: 'GAME_OVER',
+                                message: winner ? 'You lose by checkmate' : 'stalemate',
+                                newRating: result.opponent.rating,
+                                newRatingOpponent: ws.rating,
+                            }));
+                        }
                         return;
-                    }
+                    };
     
                     if (json.type === MessageType.PROMOTE_TO) {
                         if (ws.role !== 'PLAYER') throw new AppError('only players can promote a pawn', 400);
@@ -280,7 +307,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             checkmate,
                             stalemate,
                             promotionChoices,
-                            winner: winner?.color,
+                            winner: winner ? winner.color : null,
                         }));
                         result.opponent.send(JSON.stringify({
                             type: 'OPPONENT_MOVE',
@@ -297,7 +324,7 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                         }));
                         result.spectators.forEach((ws: globalThis.WebSocket) => {
                             ws.send(JSON.stringify({
-                                type: 'MOVE',
+                                type: 'CURRENT_STATE',
                                 move,
                                 board,
                                 whiteTime,
@@ -308,7 +335,32 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                                 turn,
                                 winner: winner?.color,
                             }))
-                        })    
+                        });
+                        
+                        if (winner || stalemate) {
+                            const newRatingWhite = ws.color === 'white' ? ws.rating : ws.opponent.rating;
+                            const newRatingBlack = ws.color === 'black' ? ws.rating : ws.opponent.rating;
+                            result.spectators.forEach((spectator: globalThis.WebSocket) => {
+                                spectator.send(JSON.stringify({
+                                    type: 'GAME_OVER',
+                                    message: winner ? `${winner.color} wins by checkmate` : 'stalemate',
+                                    newRatingWhite,
+                                    newRatingBlack,
+                                }))
+                            });
+                            ws.send(JSON.stringify({
+                                type: 'GAME_OVER',
+                                message: winner ? 'You win by checkmate' : 'stalemate',
+                                newRating: ws.rating,
+                                newRatingOpponent: ws.opponent.rating,
+                            }));
+                            result.opponent.send(JSON.stringify({
+                                type: 'GAME_OVER',
+                                message: winner ? 'You lose by checkmate' : 'stalemate',
+                                newRating: result.opponent.rating,
+                                newRatingOpponent: ws.rating,
+                            }));
+                        };
                         return;
                     };
     
@@ -322,34 +374,55 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             blackTime: result.blackTime,
                         }))
                         return
-                    }
+                    };
     
                     if (json.type === MessageType.QUIT_WAITING) {
-                        gameManager.leaveGame(ws);
-                        ws.send(JSON.stringify({
-                            type: 'QUIT_WAITING',
-                        }))
-                        return
+                        await gameManager.leaveGame(ws);
+                        return;
                     };
                     
                     if (json.type === MessageType.QUIT_GAME) {
                         if (ws.role !== 'PLAYER') throw new AppError('only players can quit game', 400);
+                        
+                        const {
+                            spectators,
+                            whiteTime,
+                            blackTime,
+                        } = await gameManager.leaveGame(ws);
+                        
+                        const newRatingWhite = ws.color === 'white' ? ws.rating : ws.opponent.rating;
+                        const newRatingBlack = ws.color === 'black' ? ws.rating : ws.opponent.rating;
 
-                        const result = await gameManager.leaveGame(ws);
-
-                        result.opponent.send(JSON.stringify({
-                            type: 'OPPONENT_LEFT',
-                            message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                        }))
-
-                        result.spectators.forEach((spectator: globalThis.WebSocket) => {
+                        spectators.forEach((spectator: globalThis.WebSocket) => {
                             spectator.send(JSON.stringify({
-                                type: 'PLAYER_LEFT',
-                                message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                            }))
-                        })
+                                type: 'GAME_OVER',
+                                message: `${ws.opponent.color} wins because, ${ws.color} left the game`,
+                                newRatingWhite,
+                                newRatingBlack,
+                                whiteTime,
+                                blackTime,
+                            }));
+                        });
+                        ws.send(JSON.stringify({
+                            type: 'GAME_OVER',
+                            message: `You lose because, you left the game`,
+                            newRating: ws.rating,
+                            newRatingOpponent: ws.opponent.rating,
+                            true: null,
+                            whiteTime,
+                            blackTime,
+                        }));
+                        ws.opponent.send(JSON.stringify({
+                            type: 'GAME_OVER',
+                            message: `You win because, ${ws.color} left the game`,
+                            newRating: ws.opponent.rating,
+                            newRatingOpponent: ws.rating,
+                            turn: null,
+                            whiteTime,
+                            blackTime,
+                        }));
                         return
-                    }
+                    };
     
                     if (json.type === MessageType.STOP_SPECTATING) {
                         if (ws.role !== 'SPECTATOR') throw new AppError('only spectators can stop spectate', 400);                            
@@ -364,16 +437,16 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                             }))
                         })
                         return;
-                    }           
+                    };
+                    
                 } catch (error) {
                     if (error instanceof Error) {
                         ws.send(JSON.stringify({
                             type: 'ERROR',
                             error: error.message
-                        }))
-                    }
-                }
-                    
+                        }));
+                    };
+                };
             });
             
             
@@ -386,17 +459,30 @@ export default function makeWebSocketServer (gameManager: GameManager) {
                     if (code === 1001) { //abrupt close
                         if (ws.role === 'PLAYER') {
                             
-                            const result = await gameManager.leaveGame(ws);
-    
-                            result.spectators.forEach((spectator: globalThis.WebSocket) => {
+                            const {spectators} = await gameManager.leaveGame(ws);
+                        
+                            const newRatingWhite = ws.color === 'white' ? ws.rating : ws.opponent.rating;
+                            const newRatingBlack = ws.color === 'black' ? ws.rating : ws.opponent.rating;
+
+                            spectators.forEach((spectator: globalThis.WebSocket) => {
                                 spectator.send(JSON.stringify({
-                                    type: 'PLAYER_LEFT',
-                                    message: `${result.opponent.color} wins because, ${ws.color} left the game`,
-                                }))
-                            })
-                            result.opponent.send(JSON.stringify({
-                                type: 'OPPONENT_LEFT',
-                                message: `${result.opponent.color} wins because, ${ws.color} left the game`,
+                                    type: 'GAME_OVER',
+                                    message: `${ws.opponent.color} wins because, ${ws.color} left the game`,
+                                    newRatingWhite,
+                                    newRatingBlack,
+                                }));
+                            });
+                            ws.send(JSON.stringify({
+                                type: 'GAME_OVER',
+                                message: `You lose because, you left the game`,
+                                newRating: ws.rating,
+                                newRatingOpponent: ws.opponent.rating,
+                            }));
+                            ws.opponent.send(JSON.stringify({
+                                type: 'GAME_OVER',
+                                message: `You win because, ${ws.color} left the game`,
+                                newRating: ws.opponent.rating,
+                                newRatingOpponent: ws.rating,
                             }))
         
                         }else if(ws.role === 'SPECTATOR') { 

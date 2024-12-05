@@ -44,7 +44,7 @@ interface Opponent {
 }
 
 const ChessBoard: React.FC = () => {
-    const { user } = useAuthContext();
+    const { user, dispatch:dispatchUser } = useAuthContext();
     
     const [board, setBoard] = useState<number[][]>([]);
 
@@ -66,7 +66,7 @@ const ChessBoard: React.FC = () => {
     const count = useRef<number>(1);
     const validMoves = useRef<PositionNotation[]>([]);
     const movesArray = useRef<Move[]>([]);
-    const opponentLeft = useRef<boolean>(false);
+    const GAME_OVER = useRef<boolean>(true);
     const turn = useRef<boolean>(false);
 
     const players = useRef<[ChessPlayer | null, ChessPlayer | null]>([null, null]);
@@ -119,216 +119,241 @@ const ChessBoard: React.FC = () => {
             throw new Error('Invalid role');
         }
             
-            if (ws.current) {
-                ws.current.onmessage = (event: MessageEvent) => {
-                    const json = JSON.parse(event.data);
-                    console.log('Message from websocket server:', json);
+        if (ws.current) {
+            ws.current.onmessage = (event: MessageEvent) => {
+                const json = JSON.parse(event.data);
+                console.log('Message from websocket server:', json);
+                
+                if (json.type === 'ERROR') {
+                    console.log(json.error);
+                    return
+                }
+                if (json.type === 'CONNECTED') {
+                    GAME_OVER.current = false;
+                    if (pieceColor.current === 'black') {
+                        flip.current = !flip.current;
+                        vertcleAxisState.current = vertcleAxisState.current.reverse();
+                        horizontalAxisState.current = horizontalAxisState.current.reverse();
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
+                    }
                     
-                    if (json.type === 'ERROR') {
-                        console.log(json.error);
-                        return
-                    }
-                    if (json.type === 'CONNECTED') {
-                        if (pieceColor.current === 'black') {
-                            flip.current = !flip.current;
-                            vertcleAxisState.current = vertcleAxisState.current.reverse();
-                            horizontalAxisState.current = horizontalAxisState.current.reverse();
-                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
-                        }
-                        
-                        turn.current = json.turn === pieceColor.current;
+                    turn.current = json.turn === pieceColor.current;
 
-                        players.current = [
-                            {
-                                name: user!.name,
-                                rank: user!.rank,
-                                turn: json.turn === pieceColor.current,
-                                time:  pieceColor.current === 'white' ? json.whiteTime : json.blackTime,
-                                color: pieceColor.current!,
-                                type: 'HUMAN'
-                            } ,
-                            {
-                                name: json.opponentName,
-                                rank: json.opponentRank,
-                                turn: json.turn !== pieceColor.current,
-                                time:  pieceColor.current !== 'white' ? json.whiteTime : json.blackTime,
-                                color: pieceColor.current === 'white' ? 'black' : 'white',
-                                type: 'HUMAN',
-                            }
-                        ];
-                        setBoard(json.board);
-                        return;
-                    }
-                    if (json.type === 'SPECTATE') {
-                        setBoard(json.board);     
-                        movesArray.current = json.moves;  
-                        players.current = [
-                            {
-                                name: json.whitePlayer.name,
-                                rank: json.whitePlayer.rank,
-                                turn: json.turn === 'white',
-                                time: json.whitePlayer.time,
-                                color: 'white',
-                                type:  json.whitePlayer.type
-                            } ,
-                            {
-                                name: json.blackPlayer.name,
-                                rank: json.blackPlayer.rank,
-                                turn: json.turn === 'black',
-                                time: json.blackPlayer.time,
-                                color: 'black',
-                                type:  json.blackPlayer.type
-                            }
-                        ];
-                        return;
-                    }
-                    if (json.type === 'VALID_MOVES') {
-                        if (validMoves) {
-                            validMoves.current.forEach(position => {
-                                document.getElementById(position)?.classList.remove('valid-move')
-                            })
+                    players.current = [
+                        {
+                            name:   user!.name,
+                            rank:   user!.rank,
+                            rating: user!.rating,
+                            turn:   json.turn === pieceColor.current,
+                            time:   pieceColor.current === 'white' ? json.whiteTime : json.blackTime,
+                            color:  pieceColor.current!,
+                            type:   'HUMAN'
+                        } ,
+                        {
+                            name: json.opponentName,
+                            rank: json.opponentRank,
+                            rating: json.opponentRating,
+                            turn: json.turn !== pieceColor.current,
+                            time:  pieceColor.current !== 'white' ? json.whiteTime : json.blackTime,
+                            color: pieceColor.current === 'white' ? 'black' : 'white',
+                            type: 'HUMAN',
                         }
-            
-                        validMoves.current = json.validMoves || [];
-            
+                    ];
+                    // localStorage.setItem('gameState', JSON.stringify({
+                    //     players: players.current, 
+                    //     board: json.board, 
+                    //     moves: json.moves, 
+                    //     turn: turn.current, 
+                    //     role: role.current, 
+                    //     game_id: game_id.current
+                    // }));
+                    setBoard(json.board);
+                    return;
+                }
+                if (json.type === 'SPECTATE') {
+                    setBoard(json.board);     
+                    movesArray.current = json.moves;  
+                    players.current = [
+                        {
+                            name: json.whitePlayer.name,
+                            rank: json.whitePlayer.rank,
+                            rating: json.whitePlayer.rating,
+                            turn: json.turn === 'white',
+                            time: json.whitePlayer.time,
+                            color: 'white',
+                            type:  json.whitePlayer.type
+                        } ,
+                        {
+                            name: json.blackPlayer.name,
+                            rank: json.blackPlayer.rank,
+                            rating: json.blackPlayer.rating,
+                            turn: json.turn === 'black',
+                            time: json.blackPlayer.time,
+                            color: 'black',
+                            type:  json.blackPlayer.type
+                        }
+                    ];
+                    return;
+                }
+                if (json.type === 'VALID_MOVES') {
+                    if (validMoves) {
                         validMoves.current.forEach(position => {
-                            document.getElementById(position)?.classList.add('valid-move')
-                        });
-                        return
+                            document.getElementById(position)?.classList.remove('valid-move')
+                        })
                     }
-                    if (json.type === 'OPPONENT_MOVE') {
-                        if (json.checkmate) {
-                            console.log('Checkmate');  
-                            setDialogMessage('You lost by Checkmate!');
-                            dialogBoxRef.current!.showModal();          
-                        } else if (json.stalemate) {
-                            console.log('Stalemate');
-                            setDialogMessage('Stalemate!')              
-                        }
-
-                        players.current = [
-                            {
-                                ...players.current[0]!,
-                                time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
-                                turn: json.turn === players.current[0]?.color,
-                            } ,
-                            {
-                                ...players.current[1]!,
-                                time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
-                                turn: json.turn === players.current[1]?.color,
-                            }
-                        ];
-                        
-                        
-                        if (flip.current) {
-                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-                        }
-                        setBoard(json.board);
-                        
-                        count.current = 1
-                        movesArray.current.push(json.move);
-                        
-                        turn.current = json.turn === pieceColor.current;
-                        return
+        
+                    validMoves.current = json.validMoves || [];
+        
+                    validMoves.current.forEach(position => {
+                        document.getElementById(position)?.classList.add('valid-move')
+                    });
+                    return
+                }
+                if (json.type === 'OPPONENT_MOVE') {
+                    if (json.checkmate) {
+                        console.log('Checkmate');  
+                        setDialogMessage('You lost by Checkmate!');
+                        dialogBoxRef.current!.showModal();          
+                    } else if (json.stalemate) {
+                        console.log('Stalemate');
+                        setDialogMessage('Stalemate!')              
                     }
-                    if (json.type === 'MOVE') { // for spectator
-                        if (flip.current) {
-                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-                        }
-                        if (json.checkmate) {
-                            console.log('Checkmate');  
-                            setDialogMessage(`${json.winner} won by Checkmate!`);
-                            dialogBoxRef.current!.showModal();          
-                        } else if (json.stalemate) {
-                            console.log('Stalemate');
-                            setDialogMessage('Stalemate!')              
-                        }
 
-                        players.current = [
-                            {
-                                ...players.current[0]!,
-                                time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
-                                turn: json.turn === players.current[0]?.color
-                            } ,
-                            {
-                                ...players.current[1]!,
-                                time:  players.current[1]?.color === 'black' ? json.blackTime : json.whiteTime,
-                                turn: json.turn === players.current[1]?.color
-                            }
-                        ];
-                        
-                        setBoard(json.board)
-                        movesArray.current.push(json.move)
-                        count.current = 1;
+                    players.current = [
+                        {
+                            ...players.current[0]!,
+                            time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                            turn: json.turn === players.current[0]?.color,
+                        } ,
+                        {
+                            ...players.current[1]!,
+                            time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
+                            turn: json.turn === players.current[1]?.color,
+                        }
+                    ];
+                    
+                    
+                    if (flip.current) {
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                    }
+                    setBoard(json.board);
+                    
+                    count.current = 1
+                    movesArray.current.push(json.move);
+                    
+                    turn.current = json.turn === pieceColor.current;
+                    return
+                }
+                // if (json.type === 'MOVE') { // for spectator
+                //     if (flip.current) {
+                //         json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                //     }
+                //     // if (json.checkmate) {
+                //     //     console.log('Checkmate');  
+                //     //     setDialogMessage(`${json.winner} won by Checkmate!`);
+                //     //     dialogBoxRef.current!.showModal();          
+                //     // } else if (json.stalemate) {
+                //     //     console.log('Stalemate');
+                //     //     setDialogMessage('Stalemate!')              
+                //     // }
+
+                //     players.current = [
+                //         {
+                //             ...players.current[0]!,
+                //             time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                //             turn: json.turn === players.current[0]?.color
+                //         } ,
+                //         {
+                //             ...players.current[1]!,
+                //             time:  players.current[1]?.color === 'black' ? json.blackTime : json.whiteTime,
+                //             turn: json.turn === players.current[1]?.color
+                //         }
+                //     ];
+                    
+                //     setBoard(json.board)
+                //     movesArray.current.push(json.move)
+                //     count.current = 1;
+                //     return;
+                // }
+                if (json.type === 'CURRENT_STATE') {
+                    if (flip.current) {
+                        json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
+                    }
+                    setBoard(json.board);
+                    count.current = 1;
+                    turn.current = json.turn === pieceColor.current;
+                   
+        
+                    if (json.move) movesArray.current.push(json.move);
+        
+                    if(json.promotionChoices){
+                        setPromotionChoices(json.promotionChoices);
+                        pawnPromotionDialog.current!.showModal();
                         return;
-                    }
-                    if (json.type === 'CURRENT_STATE') {
-                        if (flip.current) {
-                            json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();
-                        }
-                        setBoard(json.board);
-                        count.current = 1;
-            
-                        if (json.move) movesArray.current.push(json.move);
-            
-                        if(json.promotionChoices){
-                            setPromotionChoices(json.promotionChoices);
-                            pawnPromotionDialog.current!.showModal();
-                            return;
-            
-                        } else if (json.checkmate) {
-                            setDialogMessage('You won by Checkmate!');
-                            dialogBoxRef.current!.showModal();
-                            
-                        } else if (json.stalemate) {
-                            setDialogMessage('Stalemate!');
-                            dialogBoxRef.current!.showModal();
-                        }
-
-                        players.current = [
-                            {
-                                ...players.current[0]!,
-                                time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
-                                turn: json.turn === players.current[0]?.color
-                            } ,
-                            {
-                                ...players.current[1]!,
-                                time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
-                                turn: json.turn === players.current[1]?.color
-                            }
-                        ];
+        
+                    } else if (json.checkmate) {
+                        setDialogMessage('You won by Checkmate!');
+                        dialogBoxRef.current!.showModal();
                         
-                        return;
+                    } else if (json.stalemate) {
+                        setDialogMessage('Stalemate!');
+                        dialogBoxRef.current!.showModal();
                     }
-                    if (json.type === 'OPPONENT_LEFT') {
-                        opponentLeft.current = true
-                        setDialogMessage(json.message)
-                        dialogBoxRef.current!.showModal()
-                        ws.current?.close();
-                        return
-                    }
-                    if (json.type === 'PLAYER_LEFT') {
-                        opponentLeft.current = true
-                        setDialogMessage(json.message)
-                        dialogBoxRef.current!.showModal()
-                        ws.current?.close();
-                        return
-                    }
-                    if (json.type === 'GAME_OVER') {
-                        opponentLeft.current = true
-                        setDialogMessage(json.message)
-                        dialogBoxRef.current!.showModal()
-                        ws.current?.close();
-                        return
-                    }
+
+                    players.current = [
+                        {
+                            ...players.current[0]!,
+                            time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                            turn: json.turn === players.current[0]?.color
+                        } ,
+                        {
+                            ...players.current[1]!,
+                            time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
+                            turn: json.turn === players.current[1]?.color
+                        }
+                    ];
+                    
+                    return;
+                }
+
+                if (json.type === 'GAME_OVER') {
+                    GAME_OVER.current = true
+                    setDialogMessage(json.message)
+                    dialogBoxRef.current!.showModal()
+                    ws.current?.close();
+
+                    players.current = [
+                        {
+                            ...players.current[0]!,
+                            time:  players.current[0]?.color === 'white' ? json.whiteTime : json.blackTime,
+                            turn: json.turn === players.current[0]?.color,
+                        } ,
+                        {
+                            ...players.current[1]!,
+                            time:  players.current[0]?.color !== 'white' ? json.whiteTime : json.blackTime,
+                            turn: json.turn === players.current[1]?.color,
+                        }
+                    ];
+
+                    dispatchUser({ type: 'RATING', payload: json.newRating });
+                    return
                 }
             }
+        }
 
         const unload = (e: BeforeUnloadEvent) =>{
             e.preventDefault();
-            if (!opponentLeft) {
-                quitGame()
-            }
+            // if (!opponentLeft) {
+                // quitGame();
+                // localStorage.setItem('gameState', JSON.stringify({
+                //     players: players.current, 
+                //     board: json.board, 
+                //     moves: json.moves, 
+                //     turn: turn.current, 
+                //     role: role.current, 
+                //     game_id: game_id.current
+                // }));
+            // }
         }
         window.addEventListener('beforeunload', unload);
         
@@ -558,17 +583,25 @@ const ChessBoard: React.FC = () => {
             }));            
         }       
     }
+
     const quitGame = () =>{
-        if (!opponentLeft.current && ws.current) {
+        if (!GAME_OVER.current && ws.current) { // in game playing
             ws.current!.send(JSON.stringify({
                 type: 'QUIT_GAME',
             }));
+        } else if (GAME_OVER.current && ws.current) { // waiting
+            ws.current!.send(JSON.stringify({
+                type: 'QUIT_WAITING',
+            }));
             ws.current!.close();
+            navigate('/dashboard');
+        } else{
+            navigate('/dashboard');
         }
-        navigate('/dashboard');
     }
+
     const exitGame = () =>{
-        if (!opponentLeft.current && ws.current) {
+        if (!GAME_OVER.current && ws.current) {
             ws.current!.send(JSON.stringify({
                 type: 'STOP_SPECTATING',
             }))
@@ -609,8 +642,8 @@ const ChessBoard: React.FC = () => {
                         <>
                         {/* <div className="pic">pic</div> */}
                         <div className="name">{players.current[1]!.name}</div>
+                        <div className="rating">{players.current[1].rating}</div>
                         {/* <div className="rank">{players.current[1]!.rank}</div> */}
-                        {/* <div className="time">{players.current[1]!.time}</div> */}
                         <Timer  {...{player: players.current[1]}} />
                         </>
                     }
@@ -641,8 +674,8 @@ const ChessBoard: React.FC = () => {
                         <>
                         {/* <div className="pic">pic</div> */}
                         <div className="name">{players.current[0].name}</div>
+                        <div className="rating">{players.current[0].rating}</div>
                         {/* <div className="rank">{players.current[0].rank}</div> */}
-                        {/* <div className="time">{players.current[0].time}</div> */}
                         {/* <Timer  player={players.current[0]} /> */}
                         <Timer  {...{player: players.current[0]}} />
                         </>

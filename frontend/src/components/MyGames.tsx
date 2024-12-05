@@ -8,7 +8,7 @@ interface Game {
 }
 
 const MyGames: React.FC = () => {
-	const { user } = useAuthContext();
+	const { user, dispatch } = useAuthContext();
 	const [gamelist, setGamelist] = useState<Game[]>([])
 	const navigate = useNavigate();
 
@@ -37,7 +37,16 @@ const MyGames: React.FC = () => {
 				} else {
 					const json = await response.json()
 					console.log('error occured while refreshing the token: ',json.error);
+					localStorage.removeItem('user');
+					dispatch({ type: 'LOGOUT' });
+					navigate('/');
 				}
+			} else {
+				console.log('error occured while refreshing the token: ',json.error);
+				localStorage.removeItem('user');
+				dispatch({ type: 'LOGOUT' });
+				navigate('/');
+
 			}
 		}
 	}

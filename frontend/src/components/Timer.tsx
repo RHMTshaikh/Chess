@@ -37,7 +37,7 @@ const Timer: React.FC<TimerProps> = ({ player }) => {
     const hundredMillisecond = Math.floor((remainingTime % 1000) / 100);
 
     return (
-        <div>
+        <div className="timer">
             {`${minute.toString().padStart(2, "0")} : 
                 ${second.toString().padStart(2, "0")} : 
                 ${hundredMillisecond.toString().padStart(2, "0")}`}

@@ -1,21 +1,8 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '../hooks/useAuthContext';
 
 export default function Navbar() {
     const { user, dispatch } = useAuthContext();
-    const [name, setName] = useState<string>('');
-    const [rank, setRank] = useState<number>();
-
-    useEffect(() => {
-        if (user) {
-            setName(user.name);
-            setRank(user.rank);
-        }else{
-            setName('');
-            setRank(undefined);
-		}
-    }, [user]);
 
 	async function logout() {
         const response = await fetch(`${process.env.REACT_APP_SERVER_URL}/api/user/logout`, {
@@ -52,8 +39,8 @@ export default function Navbar() {
             <Link to={'/'}><div className="logo"></div></Link>
             {user && 
              <>
-                <div className="rank">{rank ? `rank: ${rank}` : ''}</div>
-                <div className="name">{name}</div>
+                <div className="rating">{`rating: ${user.rating}`}</div>
+                <div className="name">{user.name}</div>
                 <div className="profile-pic-div" >
                     {/* <span className="material-symbols-outlined edit-icon" >edit</span> */}
                     {'profilePic' ? 

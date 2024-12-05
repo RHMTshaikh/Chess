@@ -34,8 +34,8 @@ export default function makeLogIn ({ DB_Operations }:{DB_Operations: DB_Operatio
             throw new AppError('Incorrect password', 401);
         }
         
-        const accessToken = createAccessToken({ user, options: accessTokenOptions });
-        const refreshToken = createRefreshToken({ user, options: refreshTokenOptions });
+        const accessToken = createAccessToken({ email, options: accessTokenOptions });
+        const refreshToken = createRefreshToken({ email, options: refreshTokenOptions });
         const hashedRefreshToken = await encrypter(refreshToken);
 
         await DB_Operations.saveRefreshTokenDB({ email, refreshToken: hashedRefreshToken });
@@ -44,6 +44,7 @@ export default function makeLogIn ({ DB_Operations }:{DB_Operations: DB_Operatio
             name: user.name,
             email: user.email,
             rank: user.rank,
+            rating: user.rating,
             accessToken,
             refreshToken,
             accessTokenMaxAge: ms(refreshTokenOptions.expiresIn)/1000,
