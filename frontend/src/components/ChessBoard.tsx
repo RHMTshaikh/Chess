@@ -418,6 +418,10 @@ const ChessBoard: React.FC = () => {
     
     const grabPiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         const isTouch = e.type === 'touchstart';
+        if (isTouch) {
+            e.preventDefault(); // Prevent page scrolling on touch devices
+        }
+    
         const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
     
@@ -443,6 +447,7 @@ const ChessBoard: React.FC = () => {
                     element.style.width = `${width}px`;
                     element.style.height = `${height}px`;
     
+                    // Add event listeners for touch and mouse
                     document.addEventListener('mouseup', dropPiece);
                     document.addEventListener('touchend', dropPiece);
     
@@ -465,6 +470,10 @@ const ChessBoard: React.FC = () => {
     
     const movePiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         const isTouch = e.type === 'touchmove';
+        if (isTouch) {
+            e.preventDefault(); // Prevent page scrolling on touch devices
+        }
+    
         const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
     
@@ -491,6 +500,7 @@ const ChessBoard: React.FC = () => {
                 pieceY < minY ? `${minY}px` : pieceY > maxY ? `${maxY}px` : `${pieceY}px`;
         }
     };
+    
     
     const dropPiece = (e: MouseEvent | TouchEvent) => {
         const chessboard = chessBoardRef.current;
