@@ -416,10 +416,14 @@ const ChessBoard: React.FC = () => {
         return (horizontalAxisState.current[i]+vertcleAxisState.current[j]) as PositionNotation;
     };
     
-    const grabPiece = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const grabPiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+        const isTouch = e.type === 'touchstart';
+        const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
+    
         if (count.current === 1 && role.current === 'PLAYER') {
             const element = e.target as HTMLDivElement; // chess piece element
-            
+    
             if (turn.current) {
                 if (element.classList.contains('chess-piece')) {
                     const chessboard = chessBoardRef.current!;
@@ -427,10 +431,10 @@ const ChessBoard: React.FC = () => {
                     const width = chessboard.offsetWidth / 8;
     
                     const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-                    const scrollDown = window.scrollY || document.documentElement.scrollTop;
-            
-                    const pieceX = e.clientX  - width / 2 + scrollLeft;
-                    const pieceY = e.clientY  - height / 2 + scrollDown;
+                    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    
+                    const pieceX = clientX - width / 2 + scrollLeft;
+                    const pieceY = clientY - height / 2 + scrollTop;
     
                     element.style.position = 'absolute';
                     element.style.left = `${pieceX}px`;
@@ -438,7 +442,9 @@ const ChessBoard: React.FC = () => {
                     element.style.zIndex = '5';
                     element.style.width = `${width}px`;
                     element.style.height = `${height}px`;
+    
                     document.addEventListener('mouseup', dropPiece);
+                    document.addEventListener('touchend', dropPiece);
     
                     pickedPiece.current = {
                         element,
@@ -451,38 +457,42 @@ const ChessBoard: React.FC = () => {
                         position: pickedPiece.current.position
                     }));
                 }
-            } else console.log('turn: ', turn.current);
+            } else {
+                console.log('turn: ', turn.current);
+            }
         }
     };
     
-    const movePiece = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    const movePiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+        const isTouch = e.type === 'touchmove';
+        const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+        const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
+    
         const chessboard = chessBoardRef.current;
         if (pickedPiece.current && chessboard) {
             const height = chessboard.offsetHeight / 8;
             const width = chessboard.offsetWidth / 8;
     
-            const minX = chessboard.offsetLeft; 
-            const minY = chessboard.offsetTop; 
+            const minX = chessboard.offsetLeft;
+            const minY = chessboard.offsetTop;
             const maxX = minX + chessboard.offsetWidth - width;
             const maxY = minY + chessboard.offsetHeight - height;
-
-            const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
-            const scrollDown = window.scrollY || document.documentElement.scrollTop;
     
-            const pieceX = e.clientX  - width / 2 + scrollLeft;
-            const pieceY = e.clientY  - height / 2 + scrollDown;
-
+            const scrollLeft = window.scrollX || document.documentElement.scrollLeft;
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    
+            const pieceX = clientX - width / 2 + scrollLeft;
+            const pieceY = clientY - height / 2 + scrollTop;
+    
             pickedPiece.current.element!.style.position = 'absolute';
-            pickedPiece.current.element!.style.left = 
-                pieceX < minX ? `${minX}px` : 
-                pieceX > maxX ? `${maxX}px` : `${pieceX}px`;
-            pickedPiece.current.element!.style.top = 
-                pieceY < minY ? `${minY}px` : 
-                pieceY > maxY ? `${maxY}px` : `${pieceY}px`;
+            pickedPiece.current.element!.style.left =
+                pieceX < minX ? `${minX}px` : pieceX > maxX ? `${maxX}px` : `${pieceX}px`;
+            pickedPiece.current.element!.style.top =
+                pieceY < minY ? `${minY}px` : pieceY > maxY ? `${maxY}px` : `${pieceY}px`;
         }
     };
-
-    const dropPiece = (e: MouseEvent) => {
+    
+    const dropPiece = (e: MouseEvent | TouchEvent) => {
         const chessboard = chessBoardRef.current;
         const dropPosition = cellPosition(pickedPiece.current!.element);
         console.log('dropPosition: ', dropPosition);
@@ -515,7 +525,7 @@ const ChessBoard: React.FC = () => {
     
             setBoard(newBoard);
             turn.current = false;
-
+    
         } else {
             pickedPiece.current!.element!.style.position = '';
             pickedPiece.current!.element!.style.left = `0px`;
@@ -525,8 +535,10 @@ const ChessBoard: React.FC = () => {
             pickedPiece.current!.element!.style.height = '';
         }
         pickedPiece.current = null;
+    
         document.removeEventListener('mouseup', dropPiece);
-    };
+        document.removeEventListener('touchend', dropPiece);
+    };    
 
     const removeValidMoves = () => {
         if (validMoves) {
@@ -604,7 +616,7 @@ const ChessBoard: React.FC = () => {
         if (!GAME_OVER.current && ws.current) {
             ws.current!.send(JSON.stringify({
                 type: 'STOP_SPECTATING',
-            }))
+            }));
             ws.current!.close();
         }
         navigate('/dashboard')
@@ -659,6 +671,8 @@ const ChessBoard: React.FC = () => {
                     ref={chessBoardRef}
                     onMouseDown={grabPiece}
                     onMouseMove={movePiece}
+                    onTouchStart={grabPiece}
+                    onTouchMove={movePiece}
                     >
                     {boardFromArray(board, vertcleAxisState.current, horizontalAxisState.current, chessBoardRef.current?.offsetHeight!, chessBoardRef.current?.offsetWidth!)}
                 </div>
