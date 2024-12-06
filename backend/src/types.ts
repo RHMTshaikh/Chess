@@ -29,7 +29,6 @@ export interface User {
     rating: number;
 }
 
-
 export type PublicGamesDB = 
 ({ limit }: { limit: number }) 
 => Promise<any>;
