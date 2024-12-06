@@ -418,8 +418,8 @@ const ChessBoard: React.FC = () => {
     
     const grabPiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         const isTouch = e.type === 'touchstart';
+        e.preventDefault(); // Prevent page scrolling on touch devices
         if (isTouch) {
-            e.preventDefault(); // Prevent page scrolling on touch devices
         }
     
         const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
@@ -470,8 +470,8 @@ const ChessBoard: React.FC = () => {
     
     const movePiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         const isTouch = e.type === 'touchmove';
+        e.preventDefault(); // Prevent page scrolling on touch devices
         if (isTouch) {
-            e.preventDefault(); // Prevent page scrolling on touch devices
         }
     
         const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
@@ -503,6 +503,7 @@ const ChessBoard: React.FC = () => {
     
     
     const dropPiece = (e: MouseEvent | TouchEvent) => {
+        e.preventDefault();
         const chessboard = chessBoardRef.current;
         const dropPosition = cellPosition(pickedPiece.current!.element);
         console.log('dropPosition: ', dropPosition);
