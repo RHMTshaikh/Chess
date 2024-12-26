@@ -2,7 +2,7 @@ import Chess  from '../Chess-Game-Logic/Chess'
 import { Player, Move, PositionNotation } from "../../types"
 import { EventEmitter } from 'events';
 import AppError from '../../Errors/AppError';
-import { eloRating } from '../Entites/Rating/Rating';
+import { eloRating } from '../Rating/Rating';
 
 export default class Game extends EventEmitter{
     private whitePlayer: Player;
@@ -179,7 +179,8 @@ export default class Game extends EventEmitter{
                 position: this.indexToNotation(move.to.position),
                 piece: move.to.piece
             },
-            promoteTo: move.promoteTo
+            promoteTo: move.promoteTo,
+            castel : move.castel
         }
 
         if (checkmate){
@@ -257,7 +258,8 @@ export default class Game extends EventEmitter{
                 position: this.indexToNotation(move.to.position),
                 piece: move.to.piece
             },
-            promoteTo: move.promoteTo
+            promoteTo: move.promoteTo,
+            castel : move.castel
         }
         if (checkmate){
             this.winner = this.whitePlayer.turn ? this.blackPlayer : this.whitePlayer;

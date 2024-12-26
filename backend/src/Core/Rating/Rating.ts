@@ -1,4 +1,4 @@
-import { Player } from "../../../types";
+import { Player } from "../../types";
 
 // Function to calculate the Probability
 function probability(rating1: number, rating2: number): number {

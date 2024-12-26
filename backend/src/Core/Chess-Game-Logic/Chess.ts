@@ -14,7 +14,8 @@ interface Cell {
 interface Move {
     from: Cell,
     to: Cell,
-    promoteTo: number | null
+    promoteTo: number | null,
+    castel: number | null, // number denotes the cell x position of castel
 }
 
 export default class Chess {
@@ -225,7 +226,8 @@ export default class Chess {
                 position:{y,x}, 
                 piece: this.pieceAt({y,x})
             },
-            promoteTo: null
+            promoteTo: null,
+            castel: null
         }
         if (this.inside({y,x}) && this.board[y][x]===9 && !this.is_check(move)) {
             this.validMovesArray.push({y,x});
@@ -282,7 +284,8 @@ export default class Chess {
                                 position:{y,x}, 
                                 piece: this.pieceAt({y,x})
                             },
-                            promoteTo: null
+                            promoteTo: null,
+                            castel: null
                         };
                         if ( !this.is_check(move)) {
                             this.validMovesArray.push({y,x});
@@ -308,14 +311,15 @@ export default class Chess {
                             position:{y,x:2}, 
                             piece: this.pieceAt({y,x:2})
                         },
-                        promoteTo: null
+                        promoteTo: null,
+                        castel: null
                     }
                     let threeCellsLeft = [
                         {y,x:4},
                         {y,x:3},
                         {y,x:2},
                     ]
-                    if (threeCellsLeft.some(cell => this.is_check({from:move.from, to:{position:cell, piece:move.to.piece}, promoteTo:null}))) return;
+                    if (threeCellsLeft.some(cell => this.is_check({from:move.from, to:{position:cell, piece:move.to.piece}, promoteTo:null, castel:null}))) return;
                     
                     this.validMovesArray.push({y,x:2})
                 };
@@ -329,14 +333,15 @@ export default class Chess {
                             position:{y,x:6}, 
                             piece: this.pieceAt({y,x:6})
                         },
-                        promoteTo: null
+                        promoteTo: null,
+                        castel: null
                     };
                     let threeCellsRight = [
                         {y,x:4},
                         {y,x:5},
                         {y,x:6}
                     ];
-                    if (threeCellsRight.some(cell => this.is_check({from:move.from, to:{position:cell, piece:move.to.piece}, promoteTo:null}))) return;
+                    if (threeCellsRight.some(cell => this.is_check({from:move.from, to:{position:cell, piece:move.to.piece}, promoteTo:null, castel:null}))) return;
                     
                     this.validMovesArray.push({y,x:6})
                 }
@@ -408,10 +413,11 @@ export default class Chess {
                 position:to, 
                 piece: this.pieceAt(to) 
             },
-            promoteTo: null
+            promoteTo: null,
+            castel: null
         };
 
-        
+        // checks for promotion
         if ((move.from.piece)%10===0 && (move.to.position.y)%7===0) {
             this.promotingPawnDropPosition = move.to.position;
             this.validMovesArray = [];
@@ -455,9 +461,11 @@ export default class Chess {
             if (to.x === 2) {
                 this.board[to.y][3] = this.board[to.y][0];
                 this.board[to.y][0] = 9;
+                move.castel = 3; // position of the rook
             }else if (to.x === 6) {
                 this.board[to.y][5] = this.board[to.y][7];
                 this.board[to.y][7] = 9;
+                move.castel = 5;
             }
         } else if(from.piece%10 === 0){
             if (to.y === 0 || to.y === 7) {
@@ -499,7 +507,7 @@ export default class Chess {
             position: this.promotingPawnDropPosition,
             piece: this.pieceAt(this.promotingPawnDropPosition)
         }
-        const move: Move = { from, to, promoteTo};
+        const move: Move = { from, to, promoteTo, castel: null };
         
         this.whitesTurn = !this.whitesTurn;
         

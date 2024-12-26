@@ -48,7 +48,6 @@ const ChessBoard: React.FC = () => {
     
     const [board, setBoard] = useState<number[][]>([]);
 
-    
     const [promotionChoices, setPromotionChoices] = useState<number[]>([]);
     const pawnPromotionDialog = useRef<HTMLDialogElement>(null)
     
@@ -131,7 +130,7 @@ const ChessBoard: React.FC = () => {
                 if (json.type === 'CONNECTED') {
                     GAME_OVER.current = false;
                     if (pieceColor.current === 'black') {
-                        flip.current = !flip.current;
+                        flip.current = !flip.current; // flip false means white is at the bottom always
                         vertcleAxisState.current = vertcleAxisState.current.reverse();
                         horizontalAxisState.current = horizontalAxisState.current.reverse();
                         json.board = (json.board as number[][]).map(row => row.slice().reverse()).reverse();        
@@ -418,7 +417,8 @@ const ChessBoard: React.FC = () => {
     
     const grabPiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         const isTouch = e.type === 'touchstart';
-        document.body.style.overflow = 'hidden';
+        // document.body.style.overflow = 'hidden';
+        // document.body.style.overscrollBehavior = 'hidden';
     
         const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
@@ -468,7 +468,7 @@ const ChessBoard: React.FC = () => {
     
     const movePiece = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         const isTouch = e.type === 'touchmove';
-        document.body.style.overflow = 'hidden';
+        // document.body.style.overflow = 'hidden';
     
         const clientX = isTouch ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
         const clientY = isTouch ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
@@ -499,7 +499,7 @@ const ChessBoard: React.FC = () => {
     
     
     const dropPiece = (e: MouseEvent | TouchEvent) => {
-        document.body.style.overflow = '';
+        // document.body.style.overflow = '';
         const chessboard = chessBoardRef.current;
         const dropPosition = cellPosition(pickedPiece.current!.element);
         console.log('dropPosition: ', dropPosition);
@@ -571,6 +571,18 @@ const ChessBoard: React.FC = () => {
             ({ y, x } = index(move.from.position));
             newBoard[y][x] = move.from.piece;
 
+            if (move.castel) { // position of the rook 3 or 5
+                // flip false means white is at the bottom always
+                x = move.castel;
+                if (flip.current) x = 7 - move.castel ;
+                newBoard[y][x] = 9;
+                if (x > 3) {
+                    newBoard[y][7] = move.from.piece - 4;
+                } else {
+                    newBoard[y][0] = move.from.piece - 4;
+                }
+            }
+
             setBoard(newBoard);
         }
     }
@@ -588,6 +600,18 @@ const ChessBoard: React.FC = () => {
             newBoard[y][x] = move.promoteTo || move.from.piece;
             ({ y, x } = index(move.from.position));
             newBoard[y][x] = 9;
+
+            if (move.castel) { // position of the rook 3 or 5
+                // flip false means white is at the bottom always
+                x = move.castel;
+                if (flip.current) x = 7 - move.castel ;
+                newBoard[y][x] = move.from.piece - 4;
+                if (x > 3) {
+                    newBoard[y][7] = 9;
+                } else {
+                    newBoard[y][0] = 9;
+                }
+            }
 
             setBoard(newBoard);
         }
@@ -632,7 +656,7 @@ const ChessBoard: React.FC = () => {
         const countDestination = movesArray.current.length-moveNnumber;
         const newBoard = board.map(row => row.slice());
 
-        while (countDestination < count.current) {
+        while (countDestination < count.current) { // redo
             count.current--;
             const move = movesArray.current[movesArray.current.length - count.current];
 
@@ -640,8 +664,20 @@ const ChessBoard: React.FC = () => {
             newBoard[y][x] = move.promoteTo || move.from.piece;
             ({ y, x } = index(move.from.position));
             newBoard[y][x] = 9;
+
+            if (move.castel) { // position of the rook 3 or 5
+                console.log("undo, move.castel:", move.castel);
+                x = move.castel;
+                if (flip.current) x = 7 - move.castel ;
+                newBoard[y][x] = move.from.piece - 4;
+                if (x > 3) {
+                    newBoard[y][7] = 9;
+                } else {
+                    newBoard[y][0] = 9;
+                }
+            }
         }
-        while (countDestination > count.current) {
+        while (countDestination > count.current) { // undo
             const move = movesArray.current[movesArray.current.length - count.current];
             count.current++;
 
@@ -649,6 +685,18 @@ const ChessBoard: React.FC = () => {
             newBoard[y][x] = move.to.piece;
             ({ y, x } = index(move.from.position));
             newBoard[y][x] = move.from.piece;
+
+            if (move.castel) { // position of the rook 3 or 5
+                // flip false means white is at the bottom always
+                x = move.castel;
+                if (flip.current) x = 7 - move.castel ;
+                newBoard[y][x] = 9;
+                if (x > 3) {
+                    newBoard[y][7] = move.from.piece - 4;
+                } else {
+                    newBoard[y][0] = move.from.piece - 4;
+                }
+            }
         }
         setBoard(newBoard);
     }

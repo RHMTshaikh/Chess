@@ -19,6 +19,7 @@ export interface Move {
     from: Cell,
     to: Cell,
     promoteTo: number | null,
+    castel: number | null,
 };
 export interface ChessPlayer {
     name: string;
